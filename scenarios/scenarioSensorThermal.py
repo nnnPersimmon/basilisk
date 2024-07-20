@@ -1,99 +1,31 @@
-#
-#  ISC License
-#
-#  Copyright (c) 2023, Autonomous Vehicle Systems Lab, University of Colorado at Boulder
-#
-#  Permission to use, copy, modify, and/or distribute this software for any
-#  purpose with or without fee is hereby granted, provided that the above
-#  copyright notice and this permission notice appear in all copies.
-#
-#  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-#  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-#  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-#  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-#  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-#  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-#  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-#
-
-r"""
-Overview
---------
-
-This scenario demonstrates the use of the :ref:`sensorThermal` module, which models a sensor as a flat plate of solid
-material with an insulated backing. An optional power input can be used if the sensor consumes power, which is transferred
-to heat. The sensor radiates heat to the outside environment, and takes in heat from the sun based on its incidence
-angle.
-
-The script is found in the folder ``basilisk/examples`` and executed by using::
-
-    python3 scenarioSensorThermal.py
-
-In this scenario, the :ref:`locationPointing`, :ref:`mrpFeedback`, and :ref:`extForceTorque` modules are used to
-point the sensor. In the first orbital period, the sensor is pointed directly at the sun, heating it up. In the second
-orbital period, the sensor is pointed opposite of the sun, cooling it.
-
-
-Illustration of Simulation Results
-----------------------------------
-The illustration of these results may be found below, which show the temperature in celsius over the length of the
-simulation.
-::
-
-    show_plots = True
-
-The following plots illustrate the temperature of the sensor.
-
-.. image:: /_images/Scenarios/scenario_ThermalSensor.svg
-   :align: center
-
-"""
-
-#
-# Basilisk Scenario Script and Integrated Test
-#
-# Purpose:  The purpose of this scenario script is to demonstrate the use of the sensorThermal module, which models
-#           the temperature of a sensor.
-# Author:   Adam Herrmann
-# Creation Date:  December 13th, 2022
-#
-
 import os
-import numpy as np
 
-# import general simulation support files
-from Basilisk.utilities import SimulationBaseClass
-from Basilisk.utilities import (
-    unitTestSupport,
-)  # general support file with common unit test functions
 import matplotlib.pyplot as plt
-from Basilisk.utilities import macros
-from Basilisk.utilities import orbitalMotion
-
-# import simulation related support
-from Basilisk.simulation import spacecraft
-from Basilisk.simulation import extForceTorque
-from Basilisk.utilities import simIncludeGravBody
-from Basilisk.simulation import simpleNav
-from Basilisk.simulation import ephemerisConverter
-from Basilisk.simulation import sensorThermal
-
-# import FSW Algorithm related support
-from Basilisk.fswAlgorithms import mrpFeedback
-from Basilisk.fswAlgorithms import locationPointing
-
-# import message declarations
-from Basilisk.architecture import messaging
-
-# attempt to import vizard
-from Basilisk.utilities import vizSupport
-
-# The path to the location of Basilisk
-# Used to get the location of supporting data.
+import numpy as np
 from Basilisk import __path__
+from Basilisk.architecture import messaging
+from Basilisk.fswAlgorithms import locationPointing, mrpFeedback
+from Basilisk.simulation import (
+    ephemerisConverter,
+    extForceTorque,
+    sensorThermal,
+    simpleNav,
+    spacecraft,
+)
+from Basilisk.utilities import (
+    SimulationBaseClass,
+    macros,
+    orbitalMotion,
+    simIncludeGravBody,
+    unitTestSupport,
+)
 
 bskPath = __path__[0]
 fileName = os.path.basename(os.path.splitext(__file__)[0])
+
+
+simTaskName = "simTask"
+simProcessName = "simProcess"
 
 
 def run(show_plots):
@@ -105,20 +37,8 @@ def run(show_plots):
 
     """
 
-    # Create simulation variable names
-    simTaskName = "simTask"
-    simProcessName = "simProcess"
-
-    # Create a sim module as an empty container
     scSim = SimulationBaseClass.SimBaseClass()
-
-    # Set the simulation time variable used later on
-    simulationTime = macros.min2nano(20.0)
-
-    # Create the simulation process
     dynProcess = scSim.CreateNewProcess(simProcessName)
-
-    # create the dynamics task and specify the integration update time
     simulationTimeStep = macros.sec2nano(1.0)
     dynProcess.addTask(scSim.CreateNewTask(simTaskName, simulationTimeStep))
 
