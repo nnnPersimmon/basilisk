@@ -148,7 +148,7 @@ def setup_simulation():
     dynProcess = scSim.CreateNewProcess(simProcessName)
     dynProcess.addTask(scSim.CreateNewTask(simTaskName, simulationTimeStep))
 
-    return scSim, simTaskName
+    return scSim
 
 
 def start_simulation(scSim, locPoint, P):
@@ -188,7 +188,7 @@ def plot_results(tempLog):
 
 
 def run():
-    scSim, simTaskName = setup_simulation()
+    scSim = setup_simulation()
 
     scObject = setup_spacecraft(scSim)
 
