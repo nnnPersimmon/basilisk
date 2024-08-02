@@ -1,7 +1,10 @@
 import os
-
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import numpy as np
+import random
+import time
+
 from Basilisk import __path__
 from Basilisk.architecture import messaging
 from Basilisk.fswAlgorithms import locationPointing, mrpFeedback
@@ -9,6 +12,9 @@ from Basilisk.simulation import (ephemerisConverter, extForceTorque,
                                  sensorThermal, simpleNav, spacecraft)
 from Basilisk.utilities import (SimulationBaseClass, macros, orbitalMotion,
                                 simIncludeGravBody, unitTestSupport)
+
+from config import DEFAULT_THERMAL_SENSOR_CONFIG, TAMPERED_IMPUT_SENSOR_CONFIGS, TAMPERED_OUTPUT_SENSOR_CONFIGS
+
 
 bskPath = __path__[0]
 fileName = os.path.basename(os.path.splitext(__file__)[0])
@@ -19,8 +25,7 @@ simProcessName = "simProcess"
 
 
 intertia = [900.0, 0.0, 0.0, 0.0, 800.0, 0.0, 0.0, 0.0, 600.0]
-
-
+   
 def setup_spacecraft(scSim):
     scObject = spacecraft.Spacecraft()
     scObject.ModelTag = "bsk-Sat"
@@ -43,17 +48,19 @@ def setup_orbit(mu):
     return rN, vN, np.sqrt(mu / oe.a / oe.a / oe.a)
 
 
-def setup_thermal_sensor(spiceObject, scObject, scSim):
+def setup_thermal_sensor(spiceObject, scObject, scSim, config):
     # Now add the thermal sensor module
     thermalSensor = sensorThermal.SensorThermal()
-    thermalSensor.T_0 = 0  # Celsius
-    thermalSensor.nHat_B = [0, 0, 1]
-    thermalSensor.sensorArea = 1.0  # m^2
-    thermalSensor.sensorAbsorptivity = 0.25
-    thermalSensor.sensorEmissivity = 0.34
-    thermalSensor.sensorMass = 2.0  # kg
-    thermalSensor.sensorSpecificHeat = 890
-    thermalSensor.sensorPowerDraw = 30.0  # W
+    # Apply parameters from the configuration
+    thermalSensor.T_0 = config.get("T_0", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["T_0"])
+    thermalSensor.nHat_B = config.get("nHat_B", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["nHat_B"])
+    thermalSensor.sensorArea = config.get("sensorArea", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorArea"])
+    thermalSensor.sensorAbsorptivity = config.get("sensorAbsorptivity", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorAbsorptivity"])
+    thermalSensor.sensorEmissivity = config.get("sensorEmissivity", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorEmissivity"])
+    thermalSensor.sensorMass = config.get("sensorMass", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorMass"])
+    thermalSensor.sensorSpecificHeat = config.get("sensorSpecificHeat", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorSpecificHeat"])
+    thermalSensor.sensorPowerDraw = config.get("sensorPowerDraw", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorPowerDraw"])
+
     thermalSensor.sunInMsg.subscribeTo(spiceObject.planetStateOutMsgs[0])
     thermalSensor.stateInMsg.subscribeTo(scObject.scStateOutMsg)
     scSim.AddModelToTask(simTaskName, thermalSensor)
@@ -159,6 +166,7 @@ def start_simulation(scSim, locPoint, P):
     # NOTE: the total simulation time may be longer than this value. The
     # simulation is stopped at the next logging event on or after the
     # simulation end time.
+
     scSim.ConfigureStopTime(macros.sec2nano(int(P)))  # seconds to stop simulation
 
     # Begin the simulation time run set above
@@ -170,47 +178,131 @@ def start_simulation(scSim, locPoint, P):
     scSim.ExecuteSimulation()
 
 
-def plot_results(tempLog):
+def start_delay_simulation(scSim, locPoint, P, config):
+
+    # Initialize the simulation
+    scSim.InitializeSimulation()
+
+    # Set the simulation time.
+    # NOTE: the total simulation time may be longer than this value. The
+    # simulation is stopped at the next logging event on or after the
+    # simulation end time.
+    scSim.ConfigureStopTime(macros.sec2nano(int(P+config["pre_switch_delay"])))  # seconds to stop simulation
+
+    # Begin the simulation time run set above
+    scSim.ExecuteSimulation()
+
+    # Change the location pointing vector and run the sim for another period
+    locPoint.pHat_B = [0, 0, -1]
+    scSim.ConfigureStopTime(macros.sec2nano(int(2 *(P+config["post_switch_delay"]))))  # seconds to stop simulation
+
+    scSim.ExecuteSimulation()
+
+
+def plot_results(tempLog, details):
     tempData = tempLog.temperature
     tvec = tempLog.times() * macros.NANO2HOUR
 
-    figureList = {}
-    plt.close("all")
-    plt.figure(1)
+    plt.figure()
     plt.plot(tvec * 60.0, tempData)
     plt.xlabel("Time (min)")
     plt.ylabel("Temperature (deg C)")
     plt.grid(True)
-    figureList["scenario_thermalSensor"] = plt.figure(1)
+    figureList = {"scenario_thermalSensor": plt.gcf()}
+    plt.savefig(f"{details}.png")
 
-    plt.show()
-    plt.close("all")
+    return figureList
 
 
-def run():
-    scSim = setup_simulation()
+def input_tampering():
+    for config in [DEFAULT_THERMAL_SENSOR_CONFIG] + TAMPERED_IMPUT_SENSOR_CONFIGS:
+        print(config)
+        print(f"Running {config['description']}")
+        scSim = setup_simulation()
 
-    scObject = setup_spacecraft(scSim)
+        scObject = setup_spacecraft(scSim)
 
-    gravFactory, mu = setup_grav_body(scObject)
+        gravFactory, mu = setup_grav_body(scObject)
 
-    spiceObject = setup_spice_interface(gravFactory, scSim)
+        spiceObject = setup_spice_interface(gravFactory, scSim)
 
-    rN, vN, n = setup_orbit(mu)
+        rN, vN, n = setup_orbit(mu)
 
-    mrpControl, locPoint, P = setup_modules(scSim, scObject, spiceObject, n, rN, vN)
-    tempLog = setup_thermal_sensor(spiceObject, scObject, scSim)
+        mrpControl, locPoint, P = setup_modules(scSim, scObject, spiceObject, n, rN, vN)
+        print(f"Setting up sensor with {config['params']}")
+        tempLog = setup_thermal_sensor(spiceObject, scObject, scSim, config["params"])
+        
+        # Create the FSW vehicle configuration message
+        vehicleConfigOut = messaging.VehicleConfigMsgPayload()
+        vehicleConfigOut.ISCPntB_B = intertia
+        configDataMsg = messaging.VehicleConfigMsg().write(vehicleConfigOut)
+        mrpControl.vehConfigInMsg.subscribeTo(configDataMsg)
 
-    # Create the FSW vehicle configuration message
-    vehicleConfigOut = messaging.VehicleConfigMsgPayload()
-    vehicleConfigOut.ISCPntB_B = intertia
-    configDataMsg = messaging.VehicleConfigMsg().write(vehicleConfigOut)
-    mrpControl.vehConfigInMsg.subscribeTo(configDataMsg)
+        start_simulation(scSim, locPoint, P)
 
-    start_simulation(scSim, locPoint, P)
+        plot_results(tempLog, details="input_" + config["description"]) 
 
-    plot_results(tempLog)
 
+def output_tampering():
+    for config in TAMPERED_OUTPUT_SENSOR_CONFIGS:
+        print(config)
+        print(f"Running {config['description']}")
+        scSim = setup_simulation()
+
+        scObject = setup_spacecraft(scSim)
+
+        gravFactory, mu = setup_grav_body(scObject)
+
+        spiceObject = setup_spice_interface(gravFactory, scSim)
+
+        rN, vN, n = setup_orbit(mu)
+
+        mrpControl, locPoint, P = setup_modules(scSim, scObject, spiceObject, n, rN, vN)
+        print(f"Setting up sensor with {config['params']}")
+        tempLog = setup_thermal_sensor(spiceObject, scObject, scSim, config["params"])
+        
+        # Create the FSW vehicle configuration message
+        vehicleConfigOut = messaging.VehicleConfigMsgPayload()
+        vehicleConfigOut.ISCPntB_B = intertia
+        configDataMsg = messaging.VehicleConfigMsg().write(vehicleConfigOut)
+        mrpControl.vehConfigInMsg.subscribeTo(configDataMsg)
+
+        start_delay_simulation(scSim, locPoint, P, config["params"])
+        plot_results(tempLog, details="output_" + config["description"]) 
+
+################################################# INPUTS
+
+# Initial Temperature (T_0): An attacker could manipulate the initial temperature to create false readings or disrupt the sensor's baseline functionality.
+# Orientation (nHat_B): Changing the sensor's orientation could cause it to measure thermal radiation from unintended sources, leading to inaccurate data.
+# Power Draw (sensorPowerDraw): Tampering with the power draw could disrupt the sensor's operation or cause it to overheat, leading to failure or incorrect readings.
+
+########################### simulations
+# Parameter Sensitivity Analysis
+
+#     Range Testing: Define a range of plausible values for each parameter and systematically vary them within this range ; use better visualis.
+#     Granularity: Test different granularities (e.g., small increments or decrements) to see how sensitive the system is to small changes in each parameter.
+#     Extreme Values: Include both extreme values (e.g., very high or low) and non-physical values (e.g., negative area) to understand the boundaries and failure points.
+
+
+#  Monte Carlo Simulation: Implement a Monte Carlo simulation to randomly sample parameter values from predefined distributions. This can help in understanding the impact of random variations and their likelihood.
+
+# Stress Testing
+
+#     Load Testing: Simulate high-stress scenarios by pushing parameters to their limits (e.g., maximum power draw, extreme temperatures). >> we need to learn more on the sensor?? or assume the modeling??
+#     Failure Modes: Test for failure modes by applying combinations of tampered parameters to see how the system behaves under stress.?? we need to get them from somewhere
+
+########################### Countermeasures
+# Validation and Verification
+
+#     Cross-Verification: Implement cross-verification with redundant sensors or systems. Compare results from multiple sensors to detect anomalies.
+#     Consistency Checks: Perform consistency checks on sensor inputs. For instance, verify that values fall within expected physical ranges and are consistent with other sensor data.
+
+
+################################################# OUTPUT TIMING
+
+# Pre-Switch Delay Impact: Delays before the orientation switch can affect how well the system stabilizes and prepares for the new orientation. If the system relies on certain conditions or initial settings being stabilized before the switch, a delay might either give it more time to adjust or cause issues if it's already nearing its limits.
+# Post-Switch Delay Impact:  Delays after an orientation switch can influence how quickly and accurately the system adapts to the new conditions. The system's ability to quickly respond and stabilize in the new orientation is crucial for maintaining performance and avoiding errors.
 
 if __name__ == "__main__":
-    run()
+    input_tampering()
+    output_tampering()
