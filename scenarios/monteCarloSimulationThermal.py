@@ -35,7 +35,7 @@ temperatureOutMsgName = "temperatureOutMsg"
 
 # We also will need the simulationTime and samplingTimes
 numDataPoints = 500
-simulationTime = macros.min2nano(10.)
+simulationTime = macros.min2nano(200)
 samplingTime = simulationTime // (numDataPoints-1)
 
 
@@ -143,11 +143,22 @@ def createScenarioSensorThermal():
     return scSim
 
 def executeScenario(sim):
+
+    #   retrieve the module references
+    locPoint = sim.additionalReferences[1]
+    P = sim.additionalReferences[2]
+
     #   initialize Simulation
     sim.InitializeSimulation()
 
     #   configure a simulation stop time and execute the simulation run
-    sim.ConfigureStopTime(simulationTime)
+    sim.ConfigureStopTime(macros.sec2nano(int(P)))
+    # Begin the simulation time run set above
+    sim.ExecuteSimulation()
+
+    # Change the location pointing vector and run the sim for another period
+    locPoint.pHat_B = [0, 0, -1]
+    sim.ConfigureStopTime(macros.sec2nano(int(2 * P)))  # seconds to stop simulation
     sim.ExecuteSimulation()
 
 # This method is used to plot the retained data of a simulation.
