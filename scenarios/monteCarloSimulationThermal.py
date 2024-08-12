@@ -27,7 +27,7 @@ from Basilisk.utilities.MonteCarlo.Dispersions import (UniformEulerAngleMRPDispe
 
 from scenarioSensorThermal import *
 
-NUMBER_OF_RUNS = 10
+NUMBER_OF_RUNS = 100
 VERBOSE = True
 
 # Here are the name of some messages that we want to retain or otherwise use
@@ -267,3 +267,24 @@ def NormalMCRun(mcController, dirName, dispList):
 
 if __name__ == "__main__":
     runMonteCarlo()
+
+# TODO: create simulation that links the thermal sensor to other subsystems so we can quantify activity time of sat 
+# - find context of thermal sensor and subsytems
+# - maybe test with another type of sensors (startracker)
+
+# TODO: create simulations of define attacks scenarios; 
+# - abrupt attack 
+# - gradual increase of intensity (it incorportates time)
+
+# TODO: Monte Carlo analysis: change figures layout; conf intervals and max/min dev
+
+# TODO: define range of parameters that should be changed
+    # - autonomous decision on the sat
+    # - human in the loop to check to gnd station. see if can get some inferences
+    # - attack vs dysfunction
+
+# TODO: define countermeasures ; diversity, reliability and robustness
+# - detection : depends on sampling time and attack threshold taht could be tuned
+# - maybe some assumptions; prior information on % of attack (const) and/or number of sensors
+# - showcase benefit of installing the system in respect to activity time of sat 
+
