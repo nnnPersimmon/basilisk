@@ -49,3 +49,5 @@ src/moduleTemplates/autoCppModule/*
 **/__pycache__/
 venv/
 .venv/
+/scenarios/montecarlo*
+*.data
