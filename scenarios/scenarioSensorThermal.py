@@ -1,10 +1,7 @@
 import os
-import matplotlib.pyplot as plt
-import plotly.graph_objects as go
-import numpy as np
-import random
-import time
 
+import matplotlib.pyplot as plt
+import numpy as np
 from Basilisk import __path__
 from Basilisk.architecture import messaging
 from Basilisk.fswAlgorithms import locationPointing, mrpFeedback
@@ -13,8 +10,9 @@ from Basilisk.simulation import (ephemerisConverter, extForceTorque,
 from Basilisk.utilities import (SimulationBaseClass, macros, orbitalMotion,
                                 simIncludeGravBody, unitTestSupport)
 
-from config import DEFAULT_THERMAL_SENSOR_CONFIG, TAMPERED_IMPUT_SENSOR_CONFIGS, TAMPERED_OUTPUT_SENSOR_CONFIGS
-
+from config import (DEFAULT_THERMAL_SENSOR_CONFIG,
+                    TAMPERED_IMPUT_SENSOR_CONFIGS,
+                    TAMPERED_OUTPUT_SENSOR_CONFIGS)
 
 bskPath = __path__[0]
 fileName = os.path.basename(os.path.splitext(__file__)[0])
@@ -25,7 +23,8 @@ simProcessName = "simProcess"
 
 
 intertia = [900.0, 0.0, 0.0, 0.0, 800.0, 0.0, 0.0, 0.0, 600.0]
-   
+
+
 def setup_spacecraft(scSim):
     scObject = spacecraft.Spacecraft()
     scObject.ModelTag = "bsk-Sat"
@@ -52,14 +51,32 @@ def setup_thermal_sensor(spiceObject, scObject, scSim, config):
     # Now add the thermal sensor module
     thermalSensor = sensorThermal.SensorThermal()
     # Apply parameters from the configuration
-    thermalSensor.T_0 = config.get("T_0", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["T_0"])
-    thermalSensor.nHat_B = config.get("nHat_B", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["nHat_B"])
-    thermalSensor.sensorArea = config.get("sensorArea", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorArea"])
-    thermalSensor.sensorAbsorptivity = config.get("sensorAbsorptivity", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorAbsorptivity"])
-    thermalSensor.sensorEmissivity = config.get("sensorEmissivity", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorEmissivity"])
-    thermalSensor.sensorMass = config.get("sensorMass", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorMass"])
-    thermalSensor.sensorSpecificHeat = config.get("sensorSpecificHeat", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorSpecificHeat"])
-    thermalSensor.sensorPowerDraw = config.get("sensorPowerDraw", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorPowerDraw"])
+    thermalSensor.T_0 = config.get(
+        "T_0", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["T_0"]
+    )
+    thermalSensor.nHat_B = config.get(
+        "nHat_B", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["nHat_B"]
+    )
+    thermalSensor.sensorArea = config.get(
+        "sensorArea", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorArea"]
+    )
+    thermalSensor.sensorAbsorptivity = config.get(
+        "sensorAbsorptivity",
+        DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorAbsorptivity"],
+    )
+    thermalSensor.sensorEmissivity = config.get(
+        "sensorEmissivity", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorEmissivity"]
+    )
+    thermalSensor.sensorMass = config.get(
+        "sensorMass", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorMass"]
+    )
+    thermalSensor.sensorSpecificHeat = config.get(
+        "sensorSpecificHeat",
+        DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorSpecificHeat"],
+    )
+    thermalSensor.sensorPowerDraw = config.get(
+        "sensorPowerDraw", DEFAULT_THERMAL_SENSOR_CONFIG["params"]["sensorPowerDraw"]
+    )
 
     thermalSensor.sunInMsg.subscribeTo(spiceObject.planetStateOutMsgs[0])
     thermalSensor.stateInMsg.subscribeTo(scObject.scStateOutMsg)
@@ -187,14 +204,18 @@ def start_delay_simulation(scSim, locPoint, P, config):
     # NOTE: the total simulation time may be longer than this value. The
     # simulation is stopped at the next logging event on or after the
     # simulation end time.
-    scSim.ConfigureStopTime(macros.sec2nano(int(P+config["pre_switch_delay"])))  # seconds to stop simulation
+    scSim.ConfigureStopTime(
+        macros.sec2nano(int(P + config["pre_switch_delay"]))
+    )  # seconds to stop simulation
 
     # Begin the simulation time run set above
     scSim.ExecuteSimulation()
 
     # Change the location pointing vector and run the sim for another period
     locPoint.pHat_B = [0, 0, -1]
-    scSim.ConfigureStopTime(macros.sec2nano(int(2 *(P+config["post_switch_delay"]))))  # seconds to stop simulation
+    scSim.ConfigureStopTime(
+        macros.sec2nano(int(2 * (P + config["post_switch_delay"])))
+    )  # seconds to stop simulation
 
     scSim.ExecuteSimulation()
 
@@ -231,7 +252,7 @@ def input_tampering():
         mrpControl, locPoint, P = setup_modules(scSim, scObject, spiceObject, n, rN, vN)
         print(f"Setting up sensor with {config['params']}")
         tempLog = setup_thermal_sensor(spiceObject, scObject, scSim, config["params"])
-        
+
         # Create the FSW vehicle configuration message
         vehicleConfigOut = messaging.VehicleConfigMsgPayload()
         vehicleConfigOut.ISCPntB_B = intertia
@@ -240,7 +261,7 @@ def input_tampering():
 
         start_simulation(scSim, locPoint, P)
 
-        plot_results(tempLog, details="input_" + config["description"]) 
+        plot_results(tempLog, details="input_" + config["description"])
 
 
 def output_tampering():
@@ -260,7 +281,7 @@ def output_tampering():
         mrpControl, locPoint, P = setup_modules(scSim, scObject, spiceObject, n, rN, vN)
         print(f"Setting up sensor with {config['params']}")
         tempLog = setup_thermal_sensor(spiceObject, scObject, scSim, config["params"])
-        
+
         # Create the FSW vehicle configuration message
         vehicleConfigOut = messaging.VehicleConfigMsgPayload()
         vehicleConfigOut.ISCPntB_B = intertia
@@ -268,7 +289,8 @@ def output_tampering():
         mrpControl.vehConfigInMsg.subscribeTo(configDataMsg)
 
         start_delay_simulation(scSim, locPoint, P, config["params"])
-        plot_results(tempLog, details="output_" + config["description"]) 
+        plot_results(tempLog, details="output_" + config["description"])
+
 
 ################################################# INPUTS
 
@@ -283,8 +305,7 @@ def output_tampering():
 #     Granularity: Test different granularities (e.g., small increments or decrements) to see how sensitive the system is to small changes in each parameter.
 #     Extreme Values: Include both extreme values (e.g., very high or low) and non-physical values (e.g., negative area) to understand the boundaries and failure points.
 
-
-#  Monte Carlo Simulation: Implement a Monte Carlo simulation to randomly sample parameter values from predefined distributions. This can help in understanding the impact of random variations and their likelihood.
+#  Monte Carlo Simulation: Implement a Monte=Carlo simulation to randomly sample parameter values from predefined distributions. This can help in understanding the impact of random variations and their likelihood.
 
 # Stress Testing
 
@@ -306,3 +327,31 @@ def output_tampering():
 if __name__ == "__main__":
     input_tampering()
     output_tampering()
+
+
+# rerun for suntracker and attitude control
+
+# check orientation
+
+# use cases ;
+# --thermal; fpga -> force active cooling or standby mode -> relate to azure
+## add to the motivation
+# --startracker;
+# --attitude
+
+# TODO:
+# create the monte carlo for sensor thermal
+
+
+# TODO:
+# diff between noise and attacks; monte carlo
+
+
+## if we do attack detection or countermeasures -> i get % performance and $ cost
+# quantification of performance gain at expanse of other metrics (more comm reqs and more memory, cost etc)
+# to reduce cost of monitoring, we can monitr every 10
+# samples or 100 etc.. queue instead of per. so it gives param to tune the cost so it reduces mem and  much delay
+# we need to have a benchmark; state of the art solution. this is the trivial way and this is what to suggest
+# input parameters, associate ranges and why its needed
+
+# countermeasure; add more sensors at the cost of higher payload mass and vol
