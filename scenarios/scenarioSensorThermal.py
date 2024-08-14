@@ -190,7 +190,7 @@ def start_simulation(scSim, locPoint, P):
     scSim.ExecuteSimulation()
 
     # Change the location pointing vector and run the sim for another period
-    locPoint.pHat_B = [0, 0, -1]
+    locPoint.pHat_B =  [0, 0, -1]
     scSim.ConfigureStopTime(macros.sec2nano(int(2 * P)))  # seconds to stop simulation
     scSim.ExecuteSimulation()
 
@@ -264,6 +264,34 @@ def input_tampering():
         plot_results(tempLog, details="input_" + config["description"])
 
 
+def gradual_tampering():
+    for config in [DEFAULT_THERMAL_SENSOR_CONFIG]:
+        print(config)
+        print(f"Running {config['description']}")
+        scSim = setup_simulation()
+
+        scObject = setup_spacecraft(scSim)
+
+        gravFactory, mu = setup_grav_body(scObject)
+
+        spiceObject = setup_spice_interface(gravFactory, scSim)
+
+        rN, vN, n = setup_orbit(mu)
+
+        mrpControl, locPoint, P = setup_modules(scSim, scObject, spiceObject, n, rN, vN)
+        print(f"Setting up sensor with {config['params']}")
+        tempLog = setup_thermal_sensor(spiceObject, scObject, scSim, config["params"])
+
+        # Create the FSW vehicle configuration message
+        vehicleConfigOut = messaging.VehicleConfigMsgPayload()
+        vehicleConfigOut.ISCPntB_B = intertia
+        configDataMsg = messaging.VehicleConfigMsg().write(vehicleConfigOut)
+        mrpControl.vehConfigInMsg.subscribeTo(configDataMsg)
+
+        start_simulation(scSim, locPoint, P)
+
+        plot_results(tempLog, details="test_" + config["description"])
+
 def output_tampering():
     for config in TAMPERED_OUTPUT_SENSOR_CONFIGS:
         print(config)
@@ -325,8 +353,9 @@ def output_tampering():
 # Post-Switch Delay Impact:  Delays after an orientation switch can influence how quickly and accurately the system adapts to the new conditions. The system's ability to quickly respond and stabilize in the new orientation is crucial for maintaining performance and avoiding errors.
 
 if __name__ == "__main__":
-    input_tampering()
-    output_tampering()
+    # input_tampering()
+    # output_tampering()
+    gradual_tampering()
 
 
 # rerun for suntracker and attitude control

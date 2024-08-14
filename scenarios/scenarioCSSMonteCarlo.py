@@ -23,7 +23,7 @@ from Basilisk.utilities.MonteCarlo.Controller import Controller, RetentionPolicy
 from Basilisk.utilities.MonteCarlo.Dispersions import (UniformEulerAngleMRPDispersion, UniformDispersion,
                                                        NormalVectorCartDispersion, InertiaTensorDispersion)
 
-NUMBER_OF_RUNS = 100
+NUMBER_OF_RUNS = 10
 VERBOSE = True
 MULTIPLE_INSTRUMENT = False
 MULTIPLE_PLANET = False
@@ -33,6 +33,7 @@ NUM_DATA_POINTS = 500
 # Here are the name of some messages that we want to retain or otherwise use
 cssDataOutMsgName = ["css1DataOutMsg", "css2DataOutMsg", "css3DataOutMsg"]
 scStateOutMsgName = "scStateOutMsg"
+
 
 def runMonteCarlo():
     mcController = Controller()
