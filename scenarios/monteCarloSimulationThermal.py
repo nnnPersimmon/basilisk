@@ -27,7 +27,7 @@ from Basilisk.utilities.MonteCarlo.Dispersions import (
 
 from scenarioSensorThermal import *
 
-NUMBER_OF_RUNS = 100
+NUMBER_OF_RUNS = 10
 VERBOSE = True
 
 # Global lists to store data across runs
@@ -242,7 +242,6 @@ def plotConfidenceIntervals():
     # Calculate mean and standard deviation across all runs
     mean_temp = np.mean(all_temp_data, axis=0)
     std_temp = np.std(all_temp_data, axis=0)
-    print(len(all_temp_data))
     # Define confidence intervals (e.g., 95%)
     lower_bound = mean_temp - 1.96 * std_temp
     upper_bound = mean_temp + 1.96 * std_temp

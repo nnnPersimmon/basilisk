@@ -215,7 +215,7 @@ def run(show_plots):
     CSS2 = coarseSunSensor.CoarseSunSensor()
     CSS2.ModelTag = "CSS2_sensor"
     CSS2.fov = 45. * macros.D2R
-    CSS2.scaleFactor = 1.0
+    CSS2.scaleFactor = 0.8
     CSS2.sunInMsg.subscribeTo(sunStateMsg)
     CSS2.nHat_B = [0, 0, 1]
     CSS2.stateInMsg.subscribeTo(panel1.hingedRigidBodyConfigLogOutMsg)  # states relative to panel states

@@ -12,6 +12,7 @@ DEFAULT_THERMAL_SENSOR_CONFIG = {
         "sensorMass": 2.0,  # kg
         "sensorSpecificHeat": 890,
         "sensorPowerDraw": 30.0,  # W
+        "pHat_B": [0, 0, -1],
     },
     "description": "Default Sensor Configuration",
 }
@@ -23,7 +24,7 @@ TAMPERED_IMPUT_SENSOR_CONFIGS = [
         "description": "Tampered Initial Temperature",
     },
     {
-        "params": {"nHat_B": [0, 1, 0]},  # Tampered Orientation
+        "params": {"nHat_B": [0, 1, 0], "pHat_B": [0, 0, 1]},  # Tampered Orientation
         "description": "Tampered Orientation",
     },
     {
@@ -34,6 +35,7 @@ TAMPERED_IMPUT_SENSOR_CONFIGS = [
         "params": {
             "T_0": 100,
             "nHat_B": [0, 1, 0],
+            "pHat_B": [0, 0, 1]
         },  # Tampered Initial Temperature and Orientation
         "description": "Tampered Initial Temperature and Orientation",
     },
@@ -47,6 +49,7 @@ TAMPERED_IMPUT_SENSOR_CONFIGS = [
     {
         "params": {
             "nHat_B": [0, 1, 0],
+            "pHat_B": [0, 0, 1],
             "sensorPowerDraw": 100.0,
         },  # Tampered Orientation and Power Draw
         "description": "Tampered Orientation and Power Draw",
@@ -55,6 +58,7 @@ TAMPERED_IMPUT_SENSOR_CONFIGS = [
         "params": {
             "T_0": 100,
             "nHat_B": [0, 1, 0],
+            "pHat_B": [0, 0, 1],
             "sensorPowerDraw": 100.0,
         },  # Tampered All Three
         "description": "Tampered All Three",

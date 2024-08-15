@@ -24,6 +24,7 @@ from Basilisk.utilities.MonteCarlo.Dispersions import (UniformEulerAngleMRPDispe
                                                        NormalVectorCartDispersion, InertiaTensorDispersion)
 
 NUMBER_OF_RUNS = 10
+NUMBER_OF_RUNS = 10
 VERBOSE = True
 MULTIPLE_INSTRUMENT = True
 MULTIPLE_PLANET = False
