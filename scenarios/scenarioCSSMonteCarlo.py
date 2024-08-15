@@ -16,23 +16,30 @@ bskPath = __path__[0]
 
 
 from Basilisk.architecture import messaging
-from Basilisk.simulation import (coarseSunSensor, spacecraft)
+from Basilisk.simulation import (albedo, coarseSunSensor, eclipse, spacecraft)
 from Basilisk.utilities import (SimulationBaseClass, macros, orbitalMotion as om,
                                 simIncludeGravBody, unitTestSupport)
 from Basilisk.utilities.MonteCarlo.Controller import Controller, RetentionPolicy
 from Basilisk.utilities.MonteCarlo.Dispersions import (UniformEulerAngleMRPDispersion, UniformDispersion,
                                                        NormalVectorCartDispersion, InertiaTensorDispersion)
 
-NUMBER_OF_RUNS = 100
+NUMBER_OF_RUNS = 10
 VERBOSE = True
-MULTIPLE_INSTRUMENT = False
+MULTIPLE_INSTRUMENT = True
 MULTIPLE_PLANET = False
+USE_ECLIPSE = False
+ALBEDO_DATA = False
 SIM_TIME_STEP = 10.
 NUM_DATA_POINTS = 500
 
 # Here are the name of some messages that we want to retain or otherwise use
 cssDataOutMsgName = ["css1DataOutMsg", "css2DataOutMsg", "css3DataOutMsg"]
+albDataOutMsgName = ["alb1DataOutMsg", "alb2DataOutMsg", "alb3DataOutMsg"]
 scStateOutMsgName = "scStateOutMsg"
+
+# Albedo data file
+dataPath = os.path.abspath(bskPath + "/supportData/AlbedoData/")
+fileName = "Earth_ALB_2018_CERES_All_5x5.csv"
 
 def runMonteCarlo():
     mcController = Controller()
@@ -58,14 +65,18 @@ def runMonteCarlo():
     dispCSS1Position = 'CSS1.r_PB_B'
     dispCSS2Position = 'CSS2.r_PB_B'
     dispCSS3Position = 'CSS3.r_PB_B'
+    dispCSS1KellyFactor = 'CSS1.kellyFactor'
+    dispCSS2KellyFactor = 'CSS2.kellyFactor'
+    dispCSS3KellyFactor = 'CSS3.kellyFactor'
     dispInertia = 'hubref.IHubPntBc_B'
-    dispList = {}# [dispCSS1Fov, dispCSS1Orientation]
+    dispList = [dispCSS1Fov, dispCSS1Orientation]
 
     # Add dispersions with their dispersion type
     #mcController.addDispersion(InertiaTensorDispersion(dispInertia, stdAngle=0.1))
     mcController.addDispersion(NormalVectorCartDispersion(dispCSS1Orientation, [0., 0., 0.], [1., 1., 1.]))
     mcController.addDispersion(UniformDispersion(dispCSS1Fov, [(80. - 1. * 80.) * macros.D2R, (80. + 1.0 * 80.) * macros.D2R]))
     mcController.addDispersion(NormalVectorCartDispersion(dispCSS1Position, [0., 0., 0.], [1., 1., 1.]))
+    mcController.addDispersion(UniformDispersion(dispCSS1KellyFactor, [0.0, 1.0]))
     if MULTIPLE_INSTRUMENT:
         mcController.addDispersion(NormalVectorCartDispersion(dispCSS2Orientation, [0., 0., 0.], [1., 1., 1.]))
         mcController.addDispersion(UniformDispersion(dispCSS2Fov, [(80. - 1. * 80.) * macros.D2R, (80. + 1.0 * 80.) * macros.D2R]))
@@ -73,13 +84,18 @@ def runMonteCarlo():
         mcController.addDispersion(UniformDispersion(dispCSS3Fov, [(80. - 1. * 80.) * macros.D2R, (80. + 1.0 * 80.) * macros.D2R]))
         mcController.addDispersion(NormalVectorCartDispersion(dispCSS2Position, [0., 0., 0.], [1., 1., 1.]))
         mcController.addDispersion(NormalVectorCartDispersion(dispCSS3Position, [0., 0., 0.], [1., 1., 1.]))
+        mcController.addDispersion(UniformDispersion(dispCSS2KellyFactor, [0.0, 1.0]))
+        mcController.addDispersion(UniformDispersion(dispCSS3KellyFactor, [0.0, 1.0]))
 
     # Add retention policy
     retentionPolicy = RetentionPolicy()
     retentionPolicy.addMessageLog(cssDataOutMsgName[0], ["OutputData"])
+    retentionPolicy.addMessageLog(albDataOutMsgName[0], ["albedoAtInstrument"])
     if MULTIPLE_INSTRUMENT:
         retentionPolicy.addMessageLog(cssDataOutMsgName[1], ["OutputData"])
         retentionPolicy.addMessageLog(cssDataOutMsgName[2], ["OutputData"])
+        retentionPolicy.addMessageLog(albDataOutMsgName[1], ["albedoAtInstrument"])
+        retentionPolicy.addMessageLog(albDataOutMsgName[2], ["albedoAtInstrument"])
     retentionPolicy.addMessageLog(scStateOutMsgName, ["r_BN_N"])
     retentionPolicy.setDataCallback(plotSim)
     mcController.addRetentionPolicy(retentionPolicy)
@@ -158,6 +174,8 @@ def createScenarioCSS():
         scObject.hub.v_CN_NInit = [[0.0], [0.0], [0.0]]  # m - v_CN_N
         scObject.hub.sigma_BNInit = [[0.0], [0.0], [0.0]]  # sigma_BN_B
         scObject.hub.omega_BN_BInit = [[0.0], [0.0], [1. * macros.D2R]]  # rad/s - omega_BN_B
+        simulationTime = macros.sec2nano(500.)
+        samplingTime = simulationTime // (NUM_DATA_POINTS-1)
 
     else:
         # Single planet case (earth)
@@ -183,12 +201,29 @@ def createScenarioCSS():
     # Add spacecraft object to the simulation process
     scSim.AddModelToTask(simTaskName, scObject)
 
+    #
+    # Albedo Module
+    #
+    albModule = albedo.Albedo()
+    albModule.ModelTag = "AlbedoModule"
+    albModule.spacecraftStateInMsg.subscribeTo(scObject.scStateOutMsg)
+    albModule.sunPositionInMsg.subscribeTo(sunMsg)
+
+    if USE_ECLIPSE:
+        albModule.eclipseCase = True
+        eclipseObject = eclipse.Eclipse()
+        eclipseObject.sunInMsg.subscribeTo(sunMsg)
+        eclipseObject.addSpacecraftToModel(scObject.scStateOutMsg)
+        eclipseObject.addPlanetToModel(pl1Msg)
+        scSim.AddModelToTask(simTaskName, eclipseObject)
+
     def setupCSS(CSS):
         CSS.stateInMsg.subscribeTo(scObject.scStateOutMsg)
         CSS.sunInMsg.subscribeTo(sunMsg)
         CSS.fov = 80. * macros.D2R
         CSS.maxOutput = 1.0
         CSS.nHat_B = np.array([1., 0., 0.])
+        CSS.kellyFactor = 0.0
 
     #
     # CSS-1
@@ -197,19 +232,49 @@ def createScenarioCSS():
     CSS1.ModelTag = "CSS1"
     setupCSS(CSS1)
 
+    if ALBEDO_DATA:
+        albModule.addPlanetandAlbedoDataModel(pl1Msg, dataPath, fileName)
+    else:
+        ALB_avg = 0.5
+        numLat = 200
+        numLon = 200
+        albModule.addPlanetandAlbedoAverageModel(pl1Msg, ALB_avg, numLat, numLon)
+    #
+    if MULTIPLE_PLANET:
+        albModule.addPlanetandAlbedoAverageModel(pl2Msg)
+    #
+    # Add instrument to albedo module
+    #
+    config1 = albedo.instConfig_t()
+    config1.fov = CSS1.fov
+    config1.nHat_B = CSS1.nHat_B
+    config1.r_IB_B = CSS1.r_PB_B
+    albModule.addInstrumentConfig(config1)
+    # CSS albedo input message names should be defined after adding instrument to module
+    CSS1.albedoInMsg.subscribeTo(albModule.albOutMsgs[0])
+
     if MULTIPLE_INSTRUMENT:
         # CSS-2
         CSS2 = coarseSunSensor.CoarseSunSensor()
         CSS2.ModelTag = "CSS2"
         setupCSS(CSS2)
         CSS2.nHat_B = np.array([-1., 0., 0.])
+        albModule.addInstrumentConfig(CSS2.fov, CSS2.nHat_B, CSS2.r_PB_B)
+        CSS2.albedoInMsg.subscribeTo(albModule.albOutMsgs[1])
         # CSS-3
         CSS3 = coarseSunSensor.CoarseSunSensor()
         CSS3.ModelTag = "CSS3"
         setupCSS(CSS3)
         CSS3.nHat_B = np.array([0., -1., 0.])
+        albModule.addInstrumentConfig(CSS3.fov, CSS3.nHat_B, CSS3.r_PB_B)
+        CSS3.albedoInMsg.subscribeTo(albModule.albOutMsgs[2])
 
     scSim.msgRecList = {}
+
+    #
+    # Add albedo and CSS to task and setup logging before the simulation is initialized
+    #
+    scSim.AddModelToTask(simTaskName, albModule)
     scSim.AddModelToTask(simTaskName, CSS1)
     scSim.CSS1 = CSS1
     scSim.msgRecList[cssDataOutMsgName[0]] = CSS1.cssDataOutMsg.recorder(samplingTime)
@@ -223,13 +288,19 @@ def createScenarioCSS():
     # setup logging
     scSim.msgRecList[scStateOutMsgName] = scObject.scStateOutMsg.recorder(samplingTime)
     scSim.AddModelToTask(simTaskName, scSim.msgRecList[scStateOutMsgName])
+    scSim.msgRecList[albDataOutMsgName[0]] = albModule.albOutMsgs[0].recorder(samplingTime)
+    scSim.AddModelToTask(simTaskName, scSim.msgRecList[albDataOutMsgName[0]])
     if MULTIPLE_INSTRUMENT:
         scSim.msgRecList[cssDataOutMsgName[1]] = CSS2.cssDataOutMsg.recorder(samplingTime)
         scSim.AddModelToTask(simTaskName, scSim.msgRecList[cssDataOutMsgName[1]])
         scSim.msgRecList[cssDataOutMsgName[2]] = CSS3.cssDataOutMsg.recorder(samplingTime)
         scSim.AddModelToTask(simTaskName, scSim.msgRecList[cssDataOutMsgName[2]])
+        scSim.msgRecList[albDataOutMsgName[1]] = albModule.albOutMsgs[1].recorder(samplingTime)
+        scSim.AddModelToTask(simTaskName, scSim.msgRecList[albDataOutMsgName[1]])
+        scSim.msgRecList[albDataOutMsgName[2]] = albModule.albOutMsgs[2].recorder(samplingTime)
+        scSim.AddModelToTask(simTaskName, scSim.msgRecList[albDataOutMsgName[2]])
 
-    scSim.additionalReferences = [simulationTime, simulationTimeStep]
+    scSim.additionalReferences = [simulationTime, scObject]
 
     return scSim
 
@@ -241,10 +312,34 @@ def executeScenario(sim):
     #   initialize Simulation
     sim.InitializeSimulation()
 
-    #   configure a simulation stop time and execute the simulation run
-    sim.ConfigureStopTime(simulationTime)
-    # Begin the simulation time run set above
-    sim.ExecuteSimulation()
+    if MULTIPLE_PLANET:
+        scObject = sim.additionalReferences[1]
+        velRef = scObject.dynManager.getStateObject("hubVelocity")
+        # Configure a simulation stop time and execute the simulation run
+        T1 = macros.sec2nano(500.)
+        sim.ConfigureStopTime(T1)
+        sim.ExecuteSimulation()
+        # get the current spacecraft states
+        vVt = unitTestSupport.EigenVector3d2np(velRef.getState())
+        T2 = macros.sec2nano(1000.)
+        # Set second spacecraft states for decrease in altitude
+        vVt = vVt + [0.0, 375300, 0.0]  # m - v_CN_N
+        velRef.setState(vVt)
+        sim.ConfigureStopTime(T1 + T2)
+        sim.ExecuteSimulation()
+        # get the current spacecraft states
+        T3 = macros.sec2nano(500.)
+        # Set second spacecraft states for decrease in altitude
+        vVt = [0.0, 0.0, 0.0]  # m - v_CN_N
+        velRef.setState(vVt)
+        sim.ConfigureStopTime(T1 + T2 + T3)
+        sim.ExecuteSimulation()
+        simulationTime = T1 + T2 + T3
+    else :
+        #   configure a simulation stop time and execute the simulation run
+        sim.ConfigureStopTime(simulationTime)
+        # Begin the simulation time run set above
+        sim.ExecuteSimulation()
 
 # This method is used to plot the retained data of a simulation.
 # It is called once for each run of the simulation, overlapping the plots
@@ -252,18 +347,27 @@ def plotSim(data, retentionPolicy):
     #
     # Retrieve the logged data
     #
-    n = 284
-    #n = int(simulationTime / simulationTimeStep + 1)
+    if MULTIPLE_PLANET:
+        n = 201
+    else:
+        n = 284
+    # TODO: Fix this to be more general, find a way to access the simulation time in this method
+    # n = int(simulationTime / simulationTimeStep + 1)
     if MULTIPLE_INSTRUMENT:
         dataCSS = np.zeros(shape=(n, 3))
+        dataAlb = np.zeros(shape=(n, 3))
     else:
         dataCSS = np.zeros(shape=(n, 2))
+        dataAlb = np.zeros(shape=(n, 2))
     posData = data["messages"][scStateOutMsgName + ".r_BN_N"][:,1:]
     timeAxis = data["messages"][scStateOutMsgName + ".r_BN_N"][:,0]
     dataCSS[:, 0] = data["messages"][cssDataOutMsgName[0] + ".OutputData"][:,1]
+    dataAlb[:, 0] = data["messages"][albDataOutMsgName[0] + ".albedoAtInstrument"][:,1]
     if MULTIPLE_INSTRUMENT:
         dataCSS[:, 1] = data["messages"][cssDataOutMsgName[1] + ".OutputData"][:,1]
         dataCSS[:, 2] = data["messages"][cssDataOutMsgName[2] + ".OutputData"][:,1]
+        dataAlb[:, 1] = data["messages"][albDataOutMsgName[1] + ".albedoAtInstrument"][:,1]
+        dataAlb[:, 2] = data["messages"][albDataOutMsgName[2] + ".albedoAtInstrument"][:,1]
     np.set_printoptions(precision=16)
 
     #
@@ -272,11 +376,18 @@ def plotSim(data, retentionPolicy):
     plt.figure(1)
     if MULTIPLE_INSTRUMENT:
         for idx in range(3):
+            plt.plot(timeAxis * macros.NANO2SEC, dataAlb[:, idx],
+                     linewidth=2, alpha=0.7, color=unitTestSupport.getLineColor(idx, 3),
+                     label='Run ' + str(data["index"]) + ' - Albedo$_{' + str(idx) + '}$')
             if not MULTIPLE_PLANET:
                 plt.plot(timeAxis * macros.NANO2SEC, dataCSS[:, idx],
                         '--', linewidth=1.5, color=unitTestSupport.getLineColor(idx, 3),
                         label='Run ' + str(data["index"]) + ' - CSS$_' + str(idx) + '$')
+                        
     else:
+        plt.plot(timeAxis * macros.NANO2SEC, dataAlb,
+                 linewidth=2, alpha=0.7, color=unitTestSupport.getLineColor(0, 2),
+                 label='Alb$_{1}$')
         if not MULTIPLE_PLANET:
             plt.plot(timeAxis * macros.NANO2SEC, dataCSS[:, 0], 
                     label='Run ' + str(data["index"]) + ' - CSS$_{1}$')
@@ -287,7 +398,7 @@ def plotSim(data, retentionPolicy):
     plt.xlabel('Time [s]')
     plt.ylabel('Instrument\'s signal')
     figureList = {}
-    pltName = fileNameString + str(data["index"]) + str(1) + str(int(MULTIPLE_INSTRUMENT)) + str(
+    pltName = fileNameString + str(data["index"]) + str(1) +  str(int(ALBEDO_DATA)) + str(int(MULTIPLE_INSTRUMENT)) + str(
         int(MULTIPLE_PLANET))
     figureList[pltName] = plt.figure(1)
     if MULTIPLE_PLANET:
@@ -300,8 +411,24 @@ def plotSim(data, retentionPolicy):
         plt.plot(timeAxis * macros.NANO2SEC, rData, color='#aa0000')
         plt.xlabel('Time [s]')
         plt.ylabel('Radius [km]')
-        pltName = fileNameString + str(data["index"]) + str(2) + str(int(MULTIPLE_INSTRUMENT)) + str(
+        pltName = fileNameString + str(data["index"]) + str(2) + str(int(ALBEDO_DATA)) + str(int(MULTIPLE_INSTRUMENT)) + str(
             int(MULTIPLE_PLANET))
+        figureList[pltName] = plt.figure(2)
+    
+    if ALBEDO_DATA:
+        filePath = os.path.abspath(dataPath + '/' + fileName)
+        ALB1 = np.genfromtxt(filePath, delimiter=',')
+        # ALB coefficient figures
+        fig = plt.figure(2)
+        ax = fig.add_subplot(111)
+        ax.set_title('Earth Albedo Coefficients (All Sky)')
+        ax.set(xlabel='Longitude (deg)', ylabel='Latitude (deg)')
+        plt.imshow(ALB1, cmap='Reds', interpolation='none', extent=[-180, 180, 90, -90])
+        plt.colorbar(orientation='vertical')
+        ax.set_ylim(ax.get_ylim()[::-1])
+        pltName = fileNameString + str(2) + str(int(ALBEDO_DATA)) + str(int(MULTIPLE_INSTRUMENT)) + str(
+            int(MULTIPLE_PLANET)) + str(
+            int(USE_ECLIPSE))
         figureList[pltName] = plt.figure(2)
 
     return figureList
@@ -385,7 +512,7 @@ def NormalMCRun(mcController, dirName, dispList):
     # We can plot only runs 4,6,7 overlapped
     # monteCarloLoaded.executeCallbacks([4,6,7])
     # or execute the plot on all runs
-    monteCarloLoaded.executeCallbacks([10, 50, 90])
+    monteCarloLoaded.executeCallbacks([NUMBER_OF_RUNS-1])
 
 if __name__ == "__main__":
     runMonteCarlo()
