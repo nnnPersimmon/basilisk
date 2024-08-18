@@ -229,7 +229,7 @@ def plotSim(data, retentionPolicy):
 
     # Optionally save the figure as an image file (e.g., PNG)
     fig.write_image(
-        "temperature_plot.png"
+        "figs/temperature_plot.png"
     )  # Save the combined plot after all runs are added
 
 
@@ -287,7 +287,7 @@ def plotConfidenceIntervals():
 
     # Save or show the figure
     fig_conf.write_image(
-        f"temperature_confidence_intervals_simulations={len(all_temp_data)}.png"
+        f"figs/temperature_confidence_intervals_simulations={len(all_temp_data)}.png"
     )
     # pio.show(fig_conf)
 

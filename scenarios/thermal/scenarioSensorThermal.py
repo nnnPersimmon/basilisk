@@ -230,7 +230,7 @@ def plot_results(tempLog, details):
     plt.ylabel("Temperature (deg C)")
     plt.grid(True)
     figureList = {"scenario_thermalSensor": plt.gcf()}
-    plt.savefig(f"{details}.png")
+    plt.savefig(f"figs/{details}.png")
 
     return figureList
 
