@@ -95,10 +95,3 @@ CSS1.theta = 0.*macros.D2R
 
 An optional input message, `sunEclipseInMsg`, can be used to account for solar eclipses. If not set, the CSS defaults to the spacecraft always being in the sun.
 
-## Modifications Included
-
-This version of the script introduces new command-line options for customizing the simulation, including flags for using CSS constellations, platforms, eclipse considerations, and the Kelly factor. Additionally, parameters for the number of cycles and sensors have been added to provide further flexibility in simulation setups.
-
----
-
-This `README.md` provides comprehensive instructions for setting up and running the modified Basilisk scenario script, along with detailed information on the parameters and configurations available. Let me know if you need further adjustments!
