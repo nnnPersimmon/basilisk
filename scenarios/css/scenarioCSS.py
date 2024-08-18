@@ -150,7 +150,6 @@ The resulting simulation results are shown below to be identical to the first se
 """
 
 
-
 #
 # Basilisk Scenario Script and Integrated Test
 #
@@ -159,34 +158,70 @@ The resulting simulation results are shown below to be identical to the first se
 # Creation Date:  July 21, 2017
 #
 
-import os
 
-import matplotlib.pyplot as plt
+import click
 import numpy as np
+import plotly.graph_objects as go
+
 # The path to the location of Basilisk
 # Used to get the location of supporting data.
 from Basilisk import __path__
+
 # import message declarations
 from Basilisk.architecture import messaging
-from Basilisk.simulation import coarseSunSensor
+
 # import simulation related support
-from Basilisk.simulation import spacecraft
+from Basilisk.simulation import coarseSunSensor, spacecraft
+
 # import general simulation support files
-from Basilisk.utilities import SimulationBaseClass
-from Basilisk.utilities import macros
+from Basilisk.utilities import (  # general support file with common unit test functions
+    SimulationBaseClass,
+    macros,
+)
 from Basilisk.utilities import orbitalMotion as om
-from Basilisk.utilities import unitTestSupport  # general support file with common unit test functions
-from Basilisk.utilities import vizSupport
+from Basilisk.utilities import (  # general support file with common unit test functions
+    unitTestSupport,
+    vizSupport,
+)
 
-bskPath = __path__[0]
+
+TASK_NAME = "css_simulation"
+
+# TODO: add use Kelly
+# TODO: check feasibility of theta? for many sensors
 
 
-def run(show_plots, useCSSConstellation, usePlatform, useEclipse, useKelly):
+@click.command()
+@click.option(
+    "--use-css-constellation", is_flag=True, default=False, help="Use CSS Constellation"
+)
+@click.option("--use-platform", is_flag=True, default=False, help="Use Platform")
+@click.option("--use-eclipse", is_flag=True, default=False, help="Use Eclipse")
+@click.option("--use-kelly", is_flag=True, default=False, help="Use Kelly")
+@click.option(
+    "--number-of-cycles",
+    type=int,
+    default=5,
+    help="Number of cycles (must be 1 or more)",
+)
+@click.option(
+    "--number-of-sensors",
+    type=int,
+    default=3,
+    help="Number of CSS sensors (must be 1 or more)",
+)
+def run(
+    use_css_constellation,
+    use_platform,
+    use_eclipse,
+    use_kelly,
+    number_of_cycles,
+    number_of_sensors,
+):
     """
     At the end of the python script you can specify the following example parameters.
 
     Args:
-        show_plots (bool): Determines if the script should display plots
         useCSSConstellation (bool): Flag indicating if the CSS cluster/configuration class should be used.
         usePlatform (bool): Flag specifying if the CSS platform orientation should be set.
         useEclipse (bool): Flag indicating if the eclipse input message is used.
@@ -194,164 +229,99 @@ def run(show_plots, useCSSConstellation, usePlatform, useEclipse, useKelly):
 
     """
 
-    # Create simulation variable names
-    simTaskName = "simTask"
-    simProcessName = "simProcess"
+    scSim = create_simulation()
 
-    #  Create a sim module as an empty container
-    scSim = SimulationBaseClass.SimBaseClass()
+    simulationTime = set_simulation_time(300 * number_of_cycles)
+    create_simulation_process(scSim, TASK_NAME, 1.0)
 
-    # set the simulation time variable used later on
-    simulationTime = macros.sec2nano(300.)
+    scObject = setup_spacecraft()
+    add_spacecraft_to_simulation(scSim, TASK_NAME, scObject)
 
-    #
-    #  create the simulation process
-    #
-    dynProcess = scSim.CreateNewProcess(simProcessName)
+    sunPositionMsg = create_sun_position_message()
 
-    # create the dynamics task and specify the integration update time
-    simulationTimeStep = macros.sec2nano(1.)
-    dynProcess.addTask(scSim.CreateNewTask(simTaskName, simulationTimeStep))
+    if use_eclipse:
+        eclipseMsg = create_eclipse_message()
 
-    #
-    #   setup the simulation tasks/objects
-    #
-
-    # initialize spacecraft object and set properties
-    scObject = spacecraft.Spacecraft()
-    scObject.ModelTag = "spacecraftBody"
-    # define the simulation inertia
-    I = [900., 0., 0.,
-         0., 800., 0.,
-         0., 0., 600.]
-    scObject.hub.mHub = 750.0                     # kg - spacecraft mass
-    scObject.hub.r_BcB_B = [[0.0], [0.0], [0.0]]  # m - position vector of body-fixed point B relative to CM
-    scObject.hub.IHubPntBc_B = unitTestSupport.np2EigenMatrix3d(I)
-
-    #
-    # set initial spacecraft states
-    #
-    scObject.hub.r_CN_NInit = [[0.0], [0.0], [0.0]]              # m   - r_CN_N
-    scObject.hub.v_CN_NInit = [[0.0], [0.0], [0.0]]                 # m/s - v_CN_N
-    scObject.hub.sigma_BNInit = [[0.0], [0.0], [0.0]]               # sigma_BN_B
-    scObject.hub.omega_BN_BInit = [[0.0], [0.0], [1.*macros.D2R]]   # rad/s - omega_BN_B
-
-    # add spacecraft object to the simulation process
-    scSim.AddModelToTask(simTaskName, scObject)
-
-    #
-    # create simulation messages
-    #
-    sunPositionMsgData = messaging.SpicePlanetStateMsgPayload()
-    sunPositionMsgData.PositionVector = [0.0, om.AU*1000.0, 0.0]
-    sunPositionMsg = messaging.SpicePlanetStateMsg().write(sunPositionMsgData)
-
-    if useEclipse:
-        eclipseMsgData = messaging.EclipseMsgPayload()
-        eclipseMsgData.shadowFactor = 0.5
-        eclipseMsg = messaging.EclipseMsg().write(eclipseMsgData)
-
-    def setupCSS(CSS):
-        CSS.fov = 80. * macros.D2R
+    def setup_css(CSS):
+        CSS.fov = 80.0 * macros.D2R
         CSS.scaleFactor = 2.0
         CSS.maxOutput = 2.0
         CSS.minOutput = 0.5
-        CSS.r_B = [2.00131, 2.36638, 1.]
+        CSS.r_B = [2.00131, 2.36638, 1.0]
         CSS.sunInMsg.subscribeTo(sunPositionMsg)
         CSS.stateInMsg.subscribeTo(scObject.scStateOutMsg)
-        # if useKelly:
-        #     CSS.kellyFactor = 0.2
-        if useEclipse:
+
+        if use_eclipse:
             CSS.sunEclipseInMsg.subscribeTo(eclipseMsg)
-        if usePlatform:
-            CSS.setBodyToPlatformDCM(90. * macros.D2R, 0., 0.)
-            CSS.theta = -90. * macros.D2R
+        if use_platform:
+            CSS.setBodyToPlatformDCM(90.0 * macros.D2R, 0.0, 0.0)
+            CSS.theta = -90.0 * macros.D2R
             CSS.phi = 0 * macros.D2R
-            CSS.setUnitDirectionVectorWithPerturbation(0., 0.)
+            CSS.setUnitDirectionVectorWithPerturbation(0.0, 0.0)
         else:
             CSS.nHat_B = np.array([1.0, 0.0, 0.0])
 
-    # In both CSS simulation scenarios (A) and (B) the CSS modules must
-    # first be individually created and configured.
-    # In this simulation each case uses two CSS sensors.  The minimum
-    # variables that must be set for each CSS includes
-    CSS1 = coarseSunSensor.CoarseSunSensor()
-    CSS1.ModelTag = "CSS1_sensor"
-    CSS1.kellyFactor = 0.4
-    setupCSS(CSS1)
-    # CSS1.SenBias=[0, 0, -1e-6] 
+    css_sensors = []
+    for i in range(number_of_sensors):
+        CSS = coarseSunSensor.CoarseSunSensor()
+        CSS.ModelTag = f"CSS{i+1}_sensor"
+        setup_css(CSS)
+        if i >= 1:
+            CSS.CSSGroupID = i - 1
+            CSS.r_B = [-3.05, 0.55, 1.0]
+        # Configure specific attributes for each sensor if needed
+        if i == 1:
+            CSS.CSSGroupID = 0
+            CSS.r_B = [-3.05, 0.55, 1.0]
+            if use_platform:
+                CSS.theta = 0.0 * macros.D2R
+                CSS.setUnitDirectionVectorWithPerturbation(0.0, 0.0)
+            else:
+                CSS.nHat_B = np.array([0.0, 1.0, 0.0])
+        elif i == 2:
+            CSS.CSSGroupID = 1
+            CSS.fov = 45.0 * macros.D2R
+            CSS.r_B = [-3.05, 0.55, 1.0]
+            if use_platform:
+                CSS.theta = 90.0 * macros.D2R
+                CSS.setUnitDirectionVectorWithPerturbation(0.0, 0.0)
+            else:
+                CSS.nHat_B = np.array([-1.0, 0.0, 0.0])
 
-    CSS2 = coarseSunSensor.CoarseSunSensor()
-    CSS2.ModelTag = "CSS2_sensor"
-    setupCSS(CSS2)
-    CSS2.CSSGroupID = 0
-    CSS2.r_B = [-3.05, 0.55, 1.0]
-    if usePlatform:
-        CSS2.theta = 0.*macros.D2R
-        CSS2.setUnitDirectionVectorWithPerturbation(0., 0.)
-    else:
-        CSS2.nHat_B = np.array([0.0, 1.0, 0.0])
+        css_sensors.append(CSS)
 
-    CSS3 = coarseSunSensor.CoarseSunSensor()
-    CSS3.ModelTag = "CSS3_sensor"
-    setupCSS(CSS3)
-    CSS3.CSSGroupID = 1
-    CSS3.fov = 45.0*macros.D2R
-    CSS3.r_B = [-3.05, 0.55, 1.0]
-    if usePlatform:
-        CSS3.theta = 90. * macros.D2R
-        CSS3.setUnitDirectionVectorWithPerturbation(0., 0.)
-    else:
-        CSS3.nHat_B = np.array([-1.0, 0.0, 0.0])
-
-    cssList = [CSS1, CSS2, CSS3]
-    if useCSSConstellation:
+    data_arrays = []
+    cssLogs = []
+    if use_css_constellation:
         # If instead of individual CSS a cluster of CSS units is to be evaluated as one,
         # then they can be grouped into a list, and added to the Basilisk execution
         # stack as a single entity.  This is done with
         cssArray = coarseSunSensor.CSSConstellation()
         cssArray.ModelTag = "css_array"
-        cssArray.sensorList = coarseSunSensor.CSSVector(cssList)
-        scSim.AddModelToTask(simTaskName, cssArray)
+        cssArray.sensorList = coarseSunSensor.CSSVector(css_sensors)
+        scSim.AddModelToTask(TASK_NAME, cssArray)
         # Here the CSSConstellation() module will call the individual CSS
         # update functions, collect all the sensor
         # signals, and store the output in a single output message
         # containing an array of CSS sensor signals.
+
+        #
+        #   Setup data logging before the simulation is initialized
+        #
+        cssConstLog = cssArray.constellationOutMsg.recorder()
+        scSim.AddModelToTask(TASK_NAME, cssConstLog)
     else:
         # In this scenario (A) setup the CSS unit are each evaluated separately through
         # This means that each CSS unit creates a individual output messages.
-        scSim.AddModelToTask(simTaskName, CSS1)
-        scSim.AddModelToTask(simTaskName, CSS2)
-        scSim.AddModelToTask(simTaskName, CSS3)
+        for css in css_sensors:
+            scSim.AddModelToTask(TASK_NAME, css)
+            cssLog = css.cssDataOutMsg.recorder()
+            scSim.AddModelToTask(TASK_NAME, cssLog)
+            cssLogs.append(cssLog)
 
-    #
-    #   Setup data logging before the simulation is initialized
-    #
-    if useCSSConstellation:
-        cssConstLog = cssArray.constellationOutMsg.recorder()
-        scSim.AddModelToTask(simTaskName, cssConstLog)
-    else:
-        css1Log = CSS1.cssDataOutMsg.recorder()
-        css2Log = CSS2.cssDataOutMsg.recorder()
-        css3Log = CSS3.cssDataOutMsg.recorder()
-        scSim.AddModelToTask(simTaskName, css1Log)
-        scSim.AddModelToTask(simTaskName, css2Log)
-        scSim.AddModelToTask(simTaskName, css3Log)
-
-    # optional saving off to Vizard compatible file
-    viz = vizSupport.enableUnityVisualization(scSim, simTaskName, scObject,
-                                              # saveFile=__file__,
-                                              # liveStream=True,
-                                              cssList=[cssList]
-                                              )
-    vizSupport.setInstrumentGuiSetting(viz, viewCSSPanel=True, viewCSSCoverage=True,
-                                       viewCSSBoresight=True, showCSSLabels=True)
-
-    #
     #   initialize Simulation
     #
     scSim.InitializeSimulation()
-
     #
     #   configure a simulation stop time and execute the simulation run
     #
@@ -361,66 +331,131 @@ def run(show_plots, useCSSConstellation, usePlatform, useEclipse, useKelly):
     #
     #   retrieve the logged data
     #
-    dataCSSArray = []
-    dataCSS1 = []
-    dataCSS2 = []
-    dataCSS3 = []
-    if useCSSConstellation:
-        dataCSSArray = cssConstLog.CosValue[:, :len(cssList)]
+    if use_css_constellation:
+        data_arrays.append((cssConstLog, cssConstLog.CosValue[:, : len(css_sensors)]))
     else:
-        dataCSS1 = css1Log.OutputData
-        dataCSS2 = css2Log.OutputData
-        dataCSS3 = css3Log.OutputData
+        for css in cssLogs:
+            data_arrays.append((css, css.OutputData))
+
     np.set_printoptions(precision=16)
 
-    #
-    #   plot the results
-    #
-    fileNameString = os.path.basename(os.path.splitext(__file__)[0])
-    plt.close("all")        # clears out plots from earlier test runs
-    plt.figure(1)
-    if useCSSConstellation:
-        for idx in range(len(cssList)):
-            plt.plot(cssConstLog.times()*macros.NANO2SEC, dataCSSArray[:, idx],
-                         color=unitTestSupport.getLineColor(idx,3),
-                         label='CSS$_{'+str(idx)+'}$')
+    plot_results(data_arrays, css_sensors, use_css_constellation)
+
+
+def plot_results(data_arrays, css_sensors, use_css_constellation):
+    """Plot the results of the simulation using Plotly and save to specific directory."""
+    fig = go.Figure()
+
+    if use_css_constellation:
+        for idx in range(len(css_sensors)):
+            fig.add_trace(
+                go.Scatter(
+                    x=data_arrays[0][0].times() * macros.NANO2SEC,
+                    y=data_arrays[0][1][:, idx],
+                    mode="lines",
+                    name=f"CSS_{idx}",
+                )
+            )
     else:
-        timeAxis = css1Log.times()
-        plt.plot(timeAxis * macros.NANO2SEC, dataCSS1,
-                 color=unitTestSupport.getLineColor(0, 3),
-                 label='CSS$_{1}$')
-        plt.plot(timeAxis * macros.NANO2SEC, dataCSS2,
-                 color=unitTestSupport.getLineColor(1, 3),
-                 label='CSS$_{2}$')
-        plt.plot(timeAxis * macros.NANO2SEC, dataCSS3,
-                 color=unitTestSupport.getLineColor(2, 3),
-                 label='CSS$_{3}$')
-    plt.legend(loc='lower right')
-    plt.xlabel('Time [sec]')
-    plt.ylabel('CSS Signals ')
-    figureList = {}
-    pltName = fileNameString+str(int(useCSSConstellation))+str(int(usePlatform))+str(int(useEclipse))+str(int(useKelly))
-    figureList[pltName] = plt.figure(1)
+        for index, data_css in enumerate(data_arrays):
+            fig.add_trace(
+                go.Scatter(
+                    x=data_css[0].times() * macros.NANO2SEC,
+                    y=data_css[1],
+                    mode="lines",
+                    name=f"CSS_{index}",
+                )
+            )
+
+    fig.update_layout(
+        title="CSS Signals over Time",
+        xaxis_title="Time [sec]",
+        yaxis_title="CSS Signals",
+        legend_title="Sensors",
+    )
+
+    fig.write_image(
+        f"figs/css_signals_plot_N={len(css_sensors)}_use_css_constellation={use_css_constellation}.png"
+    )
 
 
-    if show_plots:
-        plt.show()
+def setup_viz(scSim, task_name, scObject, css_sensors):
+    """Setup visualization for the simulation."""
+    viz = vizSupport.enableUnityVisualization(
+        scSim, task_name, scObject, cssList=[css_sensors]
+    )
+    vizSupport.setInstrumentGuiSetting(
+        viz,
+        viewCSSPanel=True,
+        viewCSSCoverage=True,
+        viewCSSBoresight=True,
+        showCSSLabels=True,
+    )
+    return viz
 
-    # close the plots being saved off to avoid over-writing old and new figures
-    plt.close("all")
 
-    return figureList
+def create_simulation():
+    """Create a simulation module as an empty container."""
+    return SimulationBaseClass.SimBaseClass()
 
 
-#
-# This statement below ensures that the unit test scrip can be run as a
-# stand-along python script
-#
+def set_simulation_time(sim_time_seconds):
+    """Set the simulation time variable."""
+    return macros.sec2nano(sim_time_seconds)
+
+
+def create_simulation_process(scSim, task_name, time_step_seconds):
+    """Create the simulation process and add a task to it."""
+    dynProcess = scSim.CreateNewProcess(task_name)
+    simulationTimeStep = macros.sec2nano(time_step_seconds)
+    dynProcess.addTask(scSim.CreateNewTask(task_name, simulationTimeStep))
+    return dynProcess
+
+
+def setup_spacecraft():
+    """Initialize spacecraft object and set properties."""
+    scObject = spacecraft.Spacecraft()
+    scObject.ModelTag = "spacecraftBody"
+    intertia = [900.0, 0.0, 0.0, 0.0, 800.0, 0.0, 0.0, 0.0, 600.0]
+    scObject.hub.mHub = 750.0  # kg - spacecraft mass
+    scObject.hub.r_BcB_B = [
+        [0.0],
+        [0.0],
+        [0.0],
+    ]  # m - position vector of body-fixed point B relative to CM
+    scObject.hub.IHubPntBc_B = unitTestSupport.np2EigenMatrix3d(intertia)
+
+    # Set initial spacecraft states
+    scObject.hub.r_CN_NInit = [[0.0], [0.0], [0.0]]  # m - r_CN_N
+    scObject.hub.v_CN_NInit = [[0.0], [0.0], [0.0]]  # m/s - v_CN_N
+    scObject.hub.sigma_BNInit = [[0.0], [0.0], [0.0]]  # sigma_BN_B
+    scObject.hub.omega_BN_BInit = [
+        [0.0],
+        [0.0],
+        [1.0 * macros.D2R],
+    ]  # rad/s - omega_BN_B
+
+    return scObject
+
+
+def add_spacecraft_to_simulation(scSim, task_name, scObject):
+    """Add spacecraft object to the simulation process."""
+    scSim.AddModelToTask(task_name, scObject)
+
+
+def create_sun_position_message():
+    """Create a simulation message for the sun's position."""
+    sunPositionMsgData = messaging.SpicePlanetStateMsgPayload()
+    sunPositionMsgData.PositionVector = [0.0, om.AU * 1000.0, 0.0]
+    return messaging.SpicePlanetStateMsg().write(sunPositionMsgData)
+
+
+def create_eclipse_message():
+    """Create a simulation message for eclipse conditions."""
+    eclipseMsgData = messaging.EclipseMsgPayload()
+    eclipseMsgData.shadowFactor = 0.5
+    return messaging.EclipseMsg().write(eclipseMsgData)
+
+
 if __name__ == "__main__":
-    run(
-         True,        # show_plots
-         True,       # useCSSConstellation
-         False,       # usePlatform
-         False,       # useEclipse
-         True        # useKelly
-       )
+    run()
