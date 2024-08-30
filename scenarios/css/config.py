@@ -1,0 +1,100 @@
+# Monte Carlo configs
+NUMBER_OF_RUNS = 100 # per simulation
+
+# Default Configuration for the CSS Scenario
+DEFAULT_CSS_CONFIG = {
+    "params": [
+        {
+            "fov": 80.0,
+            "r_B": [2.00131, 2.36638, 1.0],
+            "scaleFactor": 2.0,
+        },
+        {
+            "fov": 80.0,
+            "r_B": [-3.05, 0.55, 1.0],
+            "scaleFactor": 2.0,
+        },
+        {
+            "fov": 45.0,
+            "r_B": [-3.05, 0.55, 1.0],
+            "scaleFactor": 2.0,
+        }
+    ],
+    "description": "Default Sensor Configuration",
+}
+
+# Tampered Ranges of Input CSS Configurations for Monte Carlo Simulation
+TAMPERED_RANGES = [
+    {
+        "range_max": {
+            "fov": 500.0,
+            "r_B": [100.0, 100.0, 100.0],
+            "scaleFactor": 100.0,
+        }, 
+        "range_min": {
+            "fov": 0.0,
+            "r_B": [-100.0, -100.0, -100.0],
+            "scaleFactor": 0.0,
+        },
+        "description": "Tampered Sensor Configuration ranges",        
+    },
+]
+
+SIMULATIONS_PARAMETERS = [
+    {
+        "use_css_constellation": True,
+        "use_platform": False,
+        "use_eclipse": False,
+        "use_kelly": False,
+        "number_of_cycles": 5,
+        "number_of_sensors": 1,
+    },
+    {
+        "use_css_constellation": True,
+        "use_platform": True,
+        "use_eclipse": False,
+        "use_kelly": False,
+        "number_of_cycles": 5,
+        "number_of_sensors": 1,
+    },
+    {
+        "use_css_constellation": True,
+        "use_platform": True,
+        "use_eclipse": True,
+        "use_kelly": False,
+        "number_of_cycles": 5,
+        "number_of_sensors": 1,
+    },
+    {
+        "use_css_constellation": True,
+        "use_platform": True,
+        "use_eclipse": True,
+        "use_kelly": True,
+        "number_of_cycles": 5,
+        "number_of_sensors": 1,
+    },
+    {
+        "use_css_constellation": False,
+        "use_platform": False,
+        "use_eclipse": False,
+        "use_kelly": False,
+        "number_of_cycles": 5,
+        "number_of_sensors": 3,
+    },
+    {
+        "use_css_constellation": True,
+        "use_platform": True,
+        "use_eclipse": True,
+        "use_kelly": True,
+        "number_of_cycles": 5,
+        "number_of_sensors": 2,
+    },
+    {
+        "use_css_constellation": True,
+        "use_platform": True,
+        "use_eclipse": True,
+        "use_kelly": True,
+        "number_of_cycles": 5,
+        "number_of_sensors": 3,
+    },
+]

@@ -1,4 +1,6 @@
+import os
 import click
+from json import dumps
 import numpy as np
 import plotly.graph_objects as go
 from Basilisk import __path__
@@ -13,6 +15,7 @@ from Basilisk.utilities import (  # general support file with common unit test f
     unitTestSupport,
     vizSupport,
 )
+from config import DEFAULT_CSS_CONFIG
 
 TASK_NAME = "css_simulation"
 
@@ -39,6 +42,23 @@ TASK_NAME = "css_simulation"
     default=3,
     help="Number of CSS sensors (must be 1 or more)",
 )
+def run_click(
+    use_css_constellation,
+    use_platform,
+    use_eclipse,
+    use_kelly,
+    number_of_cycles,
+    number_of_sensors,
+):
+    run(
+        use_css_constellation,
+        use_platform,
+        use_eclipse,
+        use_kelly,
+        number_of_cycles,
+        number_of_sensors,
+    )
+
 def run(
     use_css_constellation,
     use_platform,
@@ -46,6 +66,9 @@ def run(
     use_kelly,
     number_of_cycles,
     number_of_sensors,
+    sensor_params=DEFAULT_CSS_CONFIG["params"],
+    is_archive=False,
+    archive_name="defaultName",
 ):
     """
     Run the simulation with the specified parameters.
@@ -57,6 +80,9 @@ def run(
         use_kelly (bool): Flag specifying if the Kelly factor should be used.
         number_of_cycles (int): Number of cycles to run the simulation (must be 1 or more).
         number_of_sensors (int): Number of CSS sensors to use in the simulation (must be 1 or more).
+        sensor_params (list): List of dictionaries containing the parameters for the CSS sensors.
+        is_archive (bool): Flag indicating if the results should be archived.
+        archive_name (str): Name of the archive file to store the results.
     """
 
     scSim = create_simulation()
@@ -73,11 +99,11 @@ def run(
         eclipseMsg = create_eclipse_message()
 
     def setup_css(CSS):
-        CSS.fov = 80.0 * macros.D2R
-        CSS.scaleFactor = 2.0
+        CSS.fov = sensor_params[0]["fov"] * macros.D2R
+        CSS.scaleFactor = sensor_params[0]["scaleFactor"]
         CSS.maxOutput = 2.0
         CSS.minOutput = 0.5
-        CSS.r_B = [2.00131, 2.36638, 1.0]
+        CSS.r_B = sensor_params[0]["r_B"]
         CSS.sunInMsg.subscribeTo(sunPositionMsg)
         CSS.stateInMsg.subscribeTo(scObject.scStateOutMsg)
 
@@ -98,11 +124,11 @@ def run(
         setup_css(CSS)
         if i >= 1:
             CSS.CSSGroupID = i - 1
-            CSS.r_B = [-3.05, 0.55, 1.0]
+            CSS.r_B = sensor_params[1]["r_B"]
         # Configure specific attributes for each sensor if needed
         if i == 1:
             CSS.CSSGroupID = 0
-            CSS.r_B = [-3.05, 0.55, 1.0]
+            CSS.r_B = sensor_params[1]["r_B"]
             if use_platform:
                 CSS.theta = 0.0 * macros.D2R
                 CSS.setUnitDirectionVectorWithPerturbation(0.0, 0.0)
@@ -110,8 +136,8 @@ def run(
                 CSS.nHat_B = np.array([0.0, 1.0, 0.0])
         elif i == 2:
             CSS.CSSGroupID = 1
-            CSS.fov = 45.0 * macros.D2R
-            CSS.r_B = [-3.05, 0.55, 1.0]
+            CSS.fov = sensor_params[2]["fov"] * macros.D2R
+            CSS.r_B = sensor_params[2]["r_B"]
             if use_platform:
                 CSS.theta = 90.0 * macros.D2R
                 CSS.setUnitDirectionVectorWithPerturbation(0.0, 0.0)
@@ -167,9 +193,47 @@ def run(
         for css in cssLogs:
             data_arrays.append((css, css.OutputData))
 
-    np.set_printoptions(precision=16)
+    if is_archive:
+        # store the data in an json archive
+        data = {
+            "use_css_constellation": use_css_constellation,
+            "use_platform": use_platform,
+            "use_eclipse": use_eclipse,
+            "use_kelly": use_kelly,
+            "number_of_cycles": number_of_cycles,
+            "number_of_sensors": number_of_sensors,
+            "params": sensor_params,
+            #"data_arrays": data_arrays,
+        }
+        json_data = dumps(data, indent=4)
 
-    plot_results(data_arrays, css_sensors, use_css_constellation)
+        fig = go.Figure()
+        for index, data_css in enumerate(data_arrays):
+            fig.add_trace(
+                go.Scatter(
+                    x=data_css[0].times() * macros.NANO2SEC,
+                    y=data_css[1],
+                    mode="lines",
+                    name=f"CSS_{index}",
+                )
+            )
+        
+        fig.update_layout(
+            title="CSS Signals over Time",
+            xaxis_title="Time [sec]",
+            yaxis_title="CSS Signals",
+            legend_title="Sensors",
+        )
+
+        json_data = json_data[:-1] + ',\n' + fig.to_json()[1:-1] + "\n}"
+        
+        with open(f"{archive_name}", "w") as f:
+            f.write(json_data)
+
+    else:
+        np.set_printoptions(precision=16)
+
+        plot_results(data_arrays, css_sensors, use_css_constellation)
 
 
 def plot_results(data_arrays, css_sensors, use_css_constellation):
@@ -288,4 +352,4 @@ def create_eclipse_message():
 
 
 if __name__ == "__main__":
-    run()
+    run_click()
