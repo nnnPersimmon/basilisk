@@ -99,11 +99,8 @@ def run(
         eclipseMsg = create_eclipse_message()
 
     def setup_css(CSS):
-        CSS.fov = sensor_params[0]["fov"] * macros.D2R
-        CSS.scaleFactor = sensor_params[0]["scaleFactor"]
         CSS.maxOutput = 2.0
         CSS.minOutput = 0.5
-        CSS.r_B = sensor_params[0]["r_B"]
         CSS.sunInMsg.subscribeTo(sunPositionMsg)
         CSS.stateInMsg.subscribeTo(scObject.scStateOutMsg)
 
@@ -122,13 +119,14 @@ def run(
         CSS = coarseSunSensor.CoarseSunSensor()
         CSS.ModelTag = f"CSS{i+1}_sensor"
         setup_css(CSS)
+        CSS.fov = sensor_params[i]["fov"] * macros.D2R
+        CSS.r_B = sensor_params[i]["r_B"]
+        CSS.scaleFactor = sensor_params[i]["scaleFactor"]
         if i >= 1:
             CSS.CSSGroupID = i - 1
-            CSS.r_B = sensor_params[1]["r_B"]
         # Configure specific attributes for each sensor if needed
         if i == 1:
             CSS.CSSGroupID = 0
-            CSS.r_B = sensor_params[1]["r_B"]
             if use_platform:
                 CSS.theta = 0.0 * macros.D2R
                 CSS.setUnitDirectionVectorWithPerturbation(0.0, 0.0)
@@ -136,8 +134,6 @@ def run(
                 CSS.nHat_B = np.array([0.0, 1.0, 0.0])
         elif i == 2:
             CSS.CSSGroupID = 1
-            CSS.fov = sensor_params[2]["fov"] * macros.D2R
-            CSS.r_B = sensor_params[2]["r_B"]
             if use_platform:
                 CSS.theta = 90.0 * macros.D2R
                 CSS.setUnitDirectionVectorWithPerturbation(0.0, 0.0)
@@ -195,6 +191,17 @@ def run(
 
     if is_archive:
         # store the data in an json archive
+        x_data = []
+        y_data = []
+        if use_css_constellation:
+            for idx in range(len(css_sensors)):
+                x_data.append(data_arrays[0][0].times() * macros.NANO2SEC)
+                y_data.append(data_arrays[0][1][:, idx])
+        else:
+            for index, data_css in enumerate(data_arrays):
+                x_data.append(data_css[0].times() * macros.NANO2SEC)
+                y_data.append(data_css[1])
+
         data = {
             "use_css_constellation": use_css_constellation,
             "use_platform": use_platform,
@@ -203,29 +210,10 @@ def run(
             "number_of_cycles": number_of_cycles,
             "number_of_sensors": number_of_sensors,
             "params": sensor_params,
-            #"data_arrays": data_arrays,
+            "x": np.array(x_data).tolist(),
+            "y": np.array(y_data).tolist(),
         }
         json_data = dumps(data, indent=4)
-
-        fig = go.Figure()
-        for index, data_css in enumerate(data_arrays):
-            fig.add_trace(
-                go.Scatter(
-                    x=data_css[0].times() * macros.NANO2SEC,
-                    y=data_css[1],
-                    mode="lines",
-                    name=f"CSS_{index}",
-                )
-            )
-        
-        fig.update_layout(
-            title="CSS Signals over Time",
-            xaxis_title="Time [sec]",
-            yaxis_title="CSS Signals",
-            legend_title="Sensors",
-        )
-
-        json_data = json_data[:-1] + ',\n' + fig.to_json()[1:-1] + "\n}"
         
         with open(f"{archive_name}", "w") as f:
             f.write(json_data)
