@@ -3,22 +3,72 @@ NUMBER_OF_RUNS = 100 # per simulation
 
 # Default Configuration for the CSS Scenario
 DEFAULT_CSS_CONFIG = {
+    # TODO : Define the nHat_B for the all sensors
     "params": [
         {
             "fov": 80.0,
             "r_B": [2.00131, 2.36638, 1.0],
             "scaleFactor": 2.0,
+            "phi": 0.0,
+            "theta": 45.0,
+            "nHat_B": [1.0, 0.0, 0.0],
         },
         {
             "fov": 80.0,
             "r_B": [-3.05, 0.55, 1.0],
             "scaleFactor": 2.0,
+            "phi": 90.0,
+            "theta": 45.0,
+            "nHat_B": [0.0, 1.0, 0.0],
         },
         {
             "fov": 45.0,
             "r_B": [-3.05, 0.55, 1.0],
             "scaleFactor": 2.0,
-        }
+            "phi": 180.0,
+            "theta": 45.0,
+            "nHat_B": [-1.0, 0.0, 0.0],
+        },
+                {
+            "fov": 80.0,
+            "r_B": [-3.05, 0.55, 1.0],
+            "scaleFactor": 2.0,
+            "phi": 270.0,
+            "theta": 45.0,
+            "nHat_B": [1.0, 0.0, 0.0],
+        },
+        {
+            "fov": 80.0,
+            "r_B": [-3.05, 0.55, 1.0],
+            "scaleFactor": 2.0,
+            "phi": 0.0,
+            "theta": -45.0,
+            "nHat_B": [1.0, 0.0, 0.0],
+        },
+                {
+            "fov": 80.0,
+            "r_B": [-3.05, 0.55, 1.0],
+            "scaleFactor": 2.0,
+            "phi": 90.0,
+            "theta": -45.0,
+            "nHat_B": [1.0, 0.0, 0.0],
+        },
+        {
+            "fov": 80.0,
+            "r_B": [-3.05, 0.55, 1.0],
+            "scaleFactor": 2.0,
+            "phi": 180.0,
+            "theta": -45.0,
+            "nHat_B": [1.0, 0.0, 0.0],
+        },
+        {
+            "fov": 80.0,
+            "r_B": [-3.05, 0.55, 1.0],
+            "scaleFactor": 2.0,
+            "phi": 270.0,
+            "theta": -45.0,
+            "nHat_B": [1.0, 0.0, 0.0],
+        },
     ],
     "description": "Default Sensor Configuration",
 }
@@ -88,7 +138,7 @@ SIMULATIONS_PARAMETERS = [
     {
         "use_css_constellation": True,
         "use_platform": False,
-        "use_eclipse": False,
+        "use_eclipse": True,
         "use_kelly": False,
         "number_of_cycles": 5,
         "number_of_sensors": 3,
@@ -97,12 +147,12 @@ SIMULATIONS_PARAMETERS = [
         "is_tampered_scale_factor": True,
     },
     {
-        "use_css_constellation": True,
-        "use_platform": False,
+        "use_css_constellation": False,
+        "use_platform": True,
         "use_eclipse": False,
         "use_kelly": False,
         "number_of_cycles": 5,
-        "number_of_sensors": 3,
+        "number_of_sensors": 8,
         "is_tampered_fov": True,
         "is_tampered_rb": True,
         "is_tampered_scale_factor": True,
@@ -113,7 +163,7 @@ SIMULATIONS_PARAMETERS = [
         "use_eclipse": True,
         "use_kelly": False,
         "number_of_cycles": 5,
-        "number_of_sensors": 3,
+        "number_of_sensors": 8,
         "is_tampered_fov": True,
         "is_tampered_rb": True,
         "is_tampered_scale_factor": True,

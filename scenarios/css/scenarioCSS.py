@@ -108,11 +108,6 @@ def run(
             CSS.sunEclipseInMsg.subscribeTo(eclipseMsg)
         if use_platform:
             CSS.setBodyToPlatformDCM(90.0 * macros.D2R, 0.0, 0.0)
-            CSS.theta = -90.0 * macros.D2R
-            CSS.phi = 0 * macros.D2R
-            CSS.setUnitDirectionVectorWithPerturbation(0.0, 0.0)
-        else:
-            CSS.nHat_B = np.array([1.0, 0.0, 0.0])
 
     css_sensors = []
     for i in range(number_of_sensors):
@@ -122,23 +117,15 @@ def run(
         CSS.fov = sensor_params[i]["fov"] * macros.D2R
         CSS.r_B = sensor_params[i]["r_B"]
         CSS.scaleFactor = sensor_params[i]["scaleFactor"]
-        if i >= 1:
-            CSS.CSSGroupID = i - 1
-        # Configure specific attributes for each sensor if needed
-        if i == 1:
-            CSS.CSSGroupID = 0
-            if use_platform:
-                CSS.theta = 0.0 * macros.D2R
-                CSS.setUnitDirectionVectorWithPerturbation(0.0, 0.0)
-            else:
-                CSS.nHat_B = np.array([0.0, 1.0, 0.0])
-        elif i == 2:
-            CSS.CSSGroupID = 1
-            if use_platform:
-                CSS.theta = 90.0 * macros.D2R
-                CSS.setUnitDirectionVectorWithPerturbation(0.0, 0.0)
-            else:
-                CSS.nHat_B = np.array([-1.0, 0.0, 0.0])
+        if use_platform:
+            CSS.theta = sensor_params[i]["theta"] * macros.D2R
+            CSS.phi = sensor_params[i]["phi"] * macros.D2R
+            CSS.setUnitDirectionVectorWithPerturbation(0.0, 0.0)
+        else:
+            # Configure specific attributes for each sensor if needed
+            if i >= 1:
+                CSS.CSSGroupID = i - 1
+            CSS.nHat_B = np.array(sensor_params[i]["nHat_B"])
 
         css_sensors.append(CSS)
 
