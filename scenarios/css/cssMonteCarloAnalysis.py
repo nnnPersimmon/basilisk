@@ -81,18 +81,11 @@ class MonteCarloCSS:
                 )
             else:
                 scaleFactor = DEFAULT_CSS_CONFIG["params"][secured_default_index]["scaleFactor"]
-
-            phi = DEFAULT_CSS_CONFIG["params"][secured_default_index]["phi"]
-            theta = DEFAULT_CSS_CONFIG["params"][secured_default_index]["theta"]
-            nHat_B = DEFAULT_CSS_CONFIG["params"][secured_default_index]["nHat_B"]
             
             randomparams.append({
                 "fov": fov, 
                 "r_B": r_B, 
                 "scaleFactor": scaleFactor,
-                "phi": phi,
-                "theta": theta,
-                "nHat_B": nHat_B,
             })
     
         return randomparams
