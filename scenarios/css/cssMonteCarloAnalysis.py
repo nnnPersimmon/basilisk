@@ -1,4 +1,5 @@
 import random
+import shutil
 from scenarioCSS import *
 from config import *
 from json import load
@@ -217,6 +218,10 @@ def displayBoard(df, title="Results"):
 
 if __name__ == "__main__":
 
+    # Create the archive folder
+    if not os.path.exists(ARCHIVE_PATH):
+        os.makedirs(ARCHIVE_PATH)
+
     correlations = []
     
     for parameters in SIMULATIONS_PARAMETERS:
@@ -275,3 +280,7 @@ if __name__ == "__main__":
 
     #displayBoard(simulation_df, "Simulations Parameters")
     displayBoard(corr_df, "Correlation Factors")
+
+
+    # Delete the archive folder
+    shutil.rmtree(ARCHIVE_PATH)
