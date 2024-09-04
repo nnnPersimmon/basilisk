@@ -108,8 +108,6 @@ def run(
             CSS.sunEclipseInMsg.subscribeTo(eclipseMsg)
         if use_platform:
             CSS.setBodyToPlatformDCM(90.0 * macros.D2R, 0.0, 0.0)
-        if use_kelly:
-            CSS.setKellyFactor(0.5)
 
     css_sensors = []
     for i in range(number_of_sensors):
@@ -117,8 +115,9 @@ def run(
         CSS.ModelTag = f"CSS{i+1}_sensor"
         setup_css(CSS)
         CSS.fov = sensor_params[i]["fov"] * macros.D2R
-        CSS.r_B = sensor_params[i]["r_B"]
+        CSS.r_B = DEFAULT_CSS_CONFIG["params"][i]["r_B"]
         CSS.scaleFactor = sensor_params[i]["scaleFactor"]
+        CSS.kellyFactor = sensor_params[i]["kellyFactor"]
         if use_platform:
             CSS.theta = DEFAULT_CSS_CONFIG["params"][i]["theta"] * macros.D2R
             CSS.phi = DEFAULT_CSS_CONFIG["params"][i]["phi"] * macros.D2R
