@@ -103,7 +103,7 @@ class MonteCarloCSS:
             default_data = load(f)
         
         default_y = np.array(default_data["y"])        
-        self.plotResults(default_data, title="Default Run")
+        #self.plotResults(default_data, title="Default Run")
 
         # open all the monte carlo run archives
         montecarlo_data = []
@@ -118,7 +118,7 @@ class MonteCarloCSS:
         correlations = []
         for idx, data in enumerate(montecarlo_data):
             y = np.array(data["y"])
-            self.plotResults(data, title="Default Run")
+            #self.plotResults(data, title="Default Run")
 
             if np.array(y).ndim > 1:
                 y = y.flatten()

@@ -15,7 +15,7 @@ from Basilisk.utilities import (  # general support file with common unit test f
     unitTestSupport,
     vizSupport,
 )
-from config import DEFAULT_CSS_CONFIG
+from config import DEFAULT_CSS_CONFIG, SIMULATION_TIME_STEP
 
 TASK_NAME = "css_simulation"
 
@@ -159,23 +159,30 @@ def run(
             scSim.AddModelToTask(TASK_NAME, cssLog)
             cssLogs.append(cssLog)
 
+    def get_css_output_within_range(x_min, x_max, y_min, y_max):
+        #
+        #   retrieve the logged data
+        #
+        if use_css_constellation:
+            data_arrays.append(cssConstLog, cssConstLog.CosValue[:, : len(css_sensors)])
+        else:
+            for css in cssLogs:
+                data_arrays.append((css, css.OutputData))
+
     #   initialize Simulation
     #
     scSim.InitializeSimulation()
     #
     #   configure a simulation stop time and execute the simulation run
     #
-    scSim.ConfigureStopTime(simulationTime)
-    scSim.ExecuteSimulation()
+    simulation_step = macros.sec2nano(SIMULATION_TIME_STEP)
+    scSim.ConfigureStopTime(simulation_step)
+    for idx in range(int(simulationTime / simulation_step)):
+        scSim.ExecuteSimulation()
+        scSim.ConfigureStopTime(simulation_step * (2 + idx))
+        get_css_output_within_range(0, 0, 0, 0)
 
-    #
-    #   retrieve the logged data
-    #
-    if use_css_constellation:
-        data_arrays.append((cssConstLog, cssConstLog.CosValue[:, : len(css_sensors)]))
-    else:
-        for css in cssLogs:
-            data_arrays.append((css, css.OutputData))
+
 
     if is_archive:
         # store the data in an json archive
@@ -325,6 +332,14 @@ def create_eclipse_message():
     eclipseMsgData = messaging.EclipseMsgPayload()
     eclipseMsgData.shadowFactor = 0.5
     return messaging.EclipseMsg().write(eclipseMsgData)
+
+
+def isProblemDetected(css_output):
+    """Check if a problem is detected based on the CSS output."""
+
+    
+
+    return False
 
 
 if __name__ == "__main__":
