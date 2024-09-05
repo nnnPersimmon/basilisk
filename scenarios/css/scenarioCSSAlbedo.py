@@ -129,8 +129,8 @@ def setup_albedo(scObject, sunMsg, use_eclipse, message):
 
 
 @click.command()
-@click.option("--show-plots", is_flag=True, default=False, help="Show plots")
-@click.option("--albedo-data", is_flag=True, default=False, help="Use albedo data")
+@click.option("--show-plots", is_flag=True, default=True, help="Show plots")
+@click.option("--albedo-data", is_flag=False, default=False, help="Use albedo data")
 @click.option(
     "--multiple-instrument",
     is_flag=True,
@@ -140,7 +140,7 @@ def setup_albedo(scObject, sunMsg, use_eclipse, message):
 @click.option(
     "--multiple-planet", is_flag=True, default=False, help="Use multiple planets"
 )
-@click.option("--use-eclipse", is_flag=True, default=False, help="Use eclipse")
+@click.option("--use-eclipse", is_flag=True, default=True, help="Use eclipse")
 @click.option("--num-cycles", type=int, default=1, help="Number of cycles")
 @click.option("--num-sensors", type=int, default=1, help="Number of sensors")
 def run_click(
@@ -171,7 +171,6 @@ def run(
     use_eclipse,
     num_cycles,
     number_of_sensors,
-    sensor_params,
 ):
     scSim, simTaskName, simulationTimeStep = create_simulation()
     sunMsg = create_sun_message()
@@ -419,15 +418,4 @@ def run(
 
 
 if __name__ == "__main__":
-    # run_click()
-
-    run(
-        True,  # show_plots
-        False,  # albedoData
-        False,  # multipleInstrument
-        False,  # multiplePlanet
-        True,  # use_eclipse
-        1,
-        1,
-        DEFAULT_CSS_CONFIG["params"],
-    )
+    run_click()
