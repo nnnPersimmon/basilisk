@@ -172,6 +172,7 @@ def run(
     num_cycles,
     number_of_sensors,
 ):
+    print(number_of_sensors)
     scSim, simTaskName, simulationTimeStep = create_simulation()
     sunMsg = create_sun_message()
     planetMessages, req, planet, gravFactory = create_planet_messages(multiplePlanet)
@@ -229,7 +230,7 @@ def run(
         config.r_IB_B = CSS.r_PB_B
         albModule.addInstrumentConfig(config)
         # CSS albedo input message names should be defined after adding instrument to module
-        CSS.albedoInMsg.subscribeTo(albModule.albOutMsgs[0])
+        CSS.albedoInMsg.subscribeTo(albModule.albOutMsgs[i])
 
     #
     # Add albedo and CSS to task and setup logging before the simulation is initialized
@@ -247,12 +248,9 @@ def run(
     scSim.AddModelToTask(simTaskName, dataLog)
 
     for i in range(number_of_sensors):
-        print(i)
         albLog = albModule.albOutMsgs[i].recorder()
-        print(albLog)
         scSim.AddModelToTask(simTaskName, albLog)
         alb_data_arrays.append(albLog.albedoAtInstrument)
-        print(albLog.albedoAtInstrument)
 
     for css in cssLogs:
         data_arrays.append((css, css.OutputData))
@@ -308,8 +306,6 @@ def run(
     #     dataAlb[:, 1] = alb1Log.albedoAtInstrument
     #     dataAlb[:, 2] = alb2Log.albedoAtInstrument
     np.set_printoptions(precision=16)
-
-    print(alb_data_arrays)
     #
     # Plot the results
     #
