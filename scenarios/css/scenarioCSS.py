@@ -1,20 +1,18 @@
 import os
-import click
 from json import dumps
+
+import click
 import numpy as np
 import plotly.graph_objects as go
 from Basilisk import __path__
 from Basilisk.architecture import messaging
 from Basilisk.simulation import coarseSunSensor, spacecraft
 from Basilisk.utilities import (  # general support file with common unit test functions
-    SimulationBaseClass,
-    macros,
-)
+    SimulationBaseClass, macros)
 from Basilisk.utilities import orbitalMotion as om
 from Basilisk.utilities import (  # general support file with common unit test functions
-    unitTestSupport,
-    vizSupport,
-)
+    unitTestSupport, vizSupport)
+
 from config import DEFAULT_CSS_CONFIG
 
 TASK_NAME = "css_simulation"
@@ -58,6 +56,7 @@ def run_click(
         number_of_cycles,
         number_of_sensors,
     )
+
 
 def run(
     use_css_constellation,
@@ -203,7 +202,7 @@ def run(
             "y": np.array(y_data).tolist(),
         }
         json_data = dumps(data, indent=4)
-        
+
         with open(f"{archive_name}", "w") as f:
             f.write(json_data)
 

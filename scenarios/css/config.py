@@ -1,5 +1,5 @@
 # Monte Carlo configs
-NUMBER_OF_RUNS = 100 # per simulation
+NUMBER_OF_RUNS = 100  # per simulation
 
 # Default Configuration for the CSS Scenario
 DEFAULT_CSS_CONFIG = {
@@ -29,7 +29,7 @@ DEFAULT_CSS_CONFIG = {
             "theta": 45.0,
             "nHat_B": [-1.0, 0.0, 0.0],
         },
-                {
+        {
             "fov": 80.0,
             "r_B": [-3.05, 0.55, 1.0],
             "scaleFactor": 2.0,
@@ -45,7 +45,7 @@ DEFAULT_CSS_CONFIG = {
             "theta": -45.0,
             "nHat_B": [1.0, 0.0, 0.0],
         },
-                {
+        {
             "fov": 80.0,
             "r_B": [-3.05, 0.55, 1.0],
             "scaleFactor": 2.0,
@@ -80,13 +80,13 @@ TAMPERED_RANGES = [
             "fov": 80.0,
             "r_B": [100.0, 100.0, 100.0],
             "scaleFactor": 10,
-        }, 
+        },
         "range_min": {
             "fov": 0.0,
             "r_B": [-100.0, -100.0, -100.0],
             "scaleFactor": 0.0,
         },
-        "description": "Tampered Sensor Configuration ranges",        
+        "description": "Tampered Sensor Configuration ranges",
     },
 ]
 
@@ -124,7 +124,7 @@ SIMULATIONS_PARAMETERS = [
         "is_tampered_rb": True,
         "is_tampered_scale_factor": True,
     },
-        {
+    {
         "use_css_constellation": True,
         "use_platform": False,
         "use_eclipse": False,
@@ -168,5 +168,4 @@ SIMULATIONS_PARAMETERS = [
         "is_tampered_rb": True,
         "is_tampered_scale_factor": True,
     },
-
 ]
