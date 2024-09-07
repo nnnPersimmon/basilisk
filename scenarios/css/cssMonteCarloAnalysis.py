@@ -23,20 +23,17 @@ class MonteCarloCSS:
     def __init__(self, params):
         """Constructor"""
         self.use_css_constellation = params["use_css_constellation"]
-        self.use_platform = params["use_platform"]
         self.use_eclipse = params["use_eclipse"]
         self.use_kelly = params["use_kelly"]
         self.number_of_cycles = params["number_of_cycles"]
         self.number_of_sensors = params["number_of_sensors"]
         self.is_tampered_fov = params["is_tampered_fov"]
-        self.is_tampered_rb = params["is_tampered_rb"]
         self.is_tampered_scale_factor = params["is_tampered_scale_factor"]
 
     def runDefault(self):
         """Run the default simulation"""
         run(
             use_css_constellation=self.use_css_constellation,
-            use_platform=self.use_platform,
             use_eclipse=self.use_eclipse,
             use_kelly=self.use_kelly,
             number_of_cycles=self.number_of_cycles,
@@ -60,23 +57,8 @@ class MonteCarloCSS:
             else:
                 fov = DEFAULT_CSS_CONFIG["params"][secured_default_index]["fov"]
 
-            if self.is_tampered_rb:
-                r_B = [
-                    random.uniform(
-                        TAMPERED_RANGES[0]["range_min"]["r_B"][0],
-                        TAMPERED_RANGES[0]["range_max"]["r_B"][0],
-                    ),
-                    random.uniform(
-                        TAMPERED_RANGES[0]["range_min"]["r_B"][1],
-                        TAMPERED_RANGES[0]["range_max"]["r_B"][1],
-                    ),
-                    random.uniform(
-                        TAMPERED_RANGES[0]["range_min"]["r_B"][2],
-                        TAMPERED_RANGES[0]["range_max"]["r_B"][2],
-                    ),
-                ]
-            else:
-                r_B = DEFAULT_CSS_CONFIG["params"][secured_default_index]["r_B"]
+
+            r_B = DEFAULT_CSS_CONFIG["params"][secured_default_index]["r_B"]
 
             if self.is_tampered_scale_factor:
                 scaleFactor = random.uniform(
@@ -104,7 +86,6 @@ class MonteCarloCSS:
             tampered_params = self.getRandomParams()
             run(
                 use_css_constellation=self.use_css_constellation,
-                use_platform=self.use_platform,
                 use_eclipse=self.use_eclipse,
                 use_kelly=self.use_kelly,
                 number_of_cycles=self.number_of_cycles,
@@ -133,19 +114,20 @@ class MonteCarloCSS:
         if default_y.ndim > 1:
             default_y = default_y.flatten()
 
+
         # compare the default run with each monte carlo run
-        correlations = []
+        mse_values = []
         for idx, data in enumerate(montecarlo_data):
             y = np.array(data["y"])
 
             if np.array(y).ndim > 1:
                 y = y.flatten()
 
-            # calculate the Pearson correlation
-            corr, _ = pearsonr(default_y, y)
-            correlations.append(corr.item())
+            # calculate the Mean Squared Error
+            mse = np.mean((default_y - y) ** 2)
+            mse_values.append(mse)
 
-        return correlations
+        return mse_values
 
     def plotResults(self, montecarlo_data, title="CSS Signals over Time"):
         """Plot the results of the default run and the Monte Carlo runs"""
@@ -242,25 +224,21 @@ if __name__ == "__main__":
 
     data = {
         "use_css_constellation": [],
-        "use_platform": [],
         "use_eclipse": [],
         "use_kelly": [],
         "number_of_cycles": [],
         "number_of_sensors": [],
         "is_tampered_fov": [],
-        "is_tampered_rb": [],
         "is_tampered_scale_factor": [],
     }
 
     for params in SIMULATIONS_PARAMETERS:
         data["use_css_constellation"].append(params["use_css_constellation"])
-        data["use_platform"].append(params["use_platform"])
         data["use_eclipse"].append(params["use_eclipse"])
         data["use_kelly"].append(params["use_kelly"])
         data["number_of_cycles"].append(params["number_of_cycles"])
         data["number_of_sensors"].append(params["number_of_sensors"])
         data["is_tampered_fov"].append(params["is_tampered_fov"])
-        data["is_tampered_rb"].append(params["is_tampered_rb"])
         data["is_tampered_scale_factor"].append(params["is_tampered_scale_factor"])
 
     simulation_df = pd.DataFrame(data)
@@ -271,6 +249,7 @@ if __name__ == "__main__":
     std_corr = []
 
     for corr in correlations:
+        print(corr)
         # get the min, max, average and standard deviation of the correlation factors for each simulation
         min_corr.append(min(corr))
         max_corr.append(max(corr))
