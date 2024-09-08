@@ -107,6 +107,7 @@ SIMULATIONS_PARAMETERS = [
         "is_tampered_fov": True,
         "is_tampered_scale_factor": False,
         "is_tampered_kelly_factor": False,
+        "name" : "Tampered FOV"
     },
    {
         "use_css_constellation": False,
@@ -117,6 +118,7 @@ SIMULATIONS_PARAMETERS = [
         "is_tampered_fov": False,
         "is_tampered_scale_factor": True,
         "is_tampered_kelly_factor": False,
+        "name" : "Tampered scale factor"
     },
     {
         "use_css_constellation": False,
@@ -127,6 +129,7 @@ SIMULATIONS_PARAMETERS = [
         "is_tampered_fov": True,
         "is_tampered_scale_factor": True,
         "is_tampered_kelly_factor": False,
+        "name" : "Tampered scale factor and FOV"
     },
     {
         "use_css_constellation": False,
@@ -137,6 +140,7 @@ SIMULATIONS_PARAMETERS = [
         "is_tampered_fov": True,
         "is_tampered_scale_factor": False,
         "is_tampered_kelly_factor": False,
+        "name" : "Tampered FOV in eclipse"
     },
     {
         "use_css_constellation": False,
@@ -147,6 +151,7 @@ SIMULATIONS_PARAMETERS = [
         "is_tampered_fov": False,
         "is_tampered_scale_factor": True,
         "is_tampered_kelly_factor": False,
+        "name" : "Tampered scale factor in eclipse"
     },
     {
         "use_css_constellation": False,
@@ -157,6 +162,7 @@ SIMULATIONS_PARAMETERS = [
         "is_tampered_fov": True,
         "is_tampered_scale_factor": True,
         "is_tampered_kelly_factor": False,
+        "name" : "Tampered scale factor and FOV in eclipse"
     },
 
 ]

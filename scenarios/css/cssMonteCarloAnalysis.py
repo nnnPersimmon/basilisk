@@ -284,11 +284,13 @@ if __name__ == "__main__":
             x=list(SENSORS_RANGE), 
             y=sim_mean, 
             mode='lines+markers', 
-            name=f'Simulation {sim_idx + 1}',
+            name=SIMULATIONS_PARAMETERS[sim_idx]["name"],
             error_y=dict(
                 type='data', 
                 array=sim_std,  # Standard deviation as error bars
-                visible=True
+                visible=True,
+                thickness=1.5,
+                width=3,
             ),
             # line=dict(
             #     color=f'rgba({50 * sim_idx}, {100 + 50 * sim_idx}, {150 + 50 * sim_idx}, 1)'
@@ -297,10 +299,10 @@ if __name__ == "__main__":
 
     # Set plot title and labels
     fig.update_layout(
-        title='MSE with Error Bars Across Sensors for Multiple Simulations',
+        title='MSE with Error Bars Across CSS Sensors',
         xaxis_title='Number of Sensors',
-        yaxis_title='Mean Squared Error',
-        template="plotly_white"
+        yaxis_title='Mean Squared Error (%)',
+        template="plotly_white",
     )
 
     # Save the plot as a PNG
