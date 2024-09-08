@@ -16,17 +16,17 @@ ARCHIVE_DEFAULT_NAME = "MonteCarlo-DefaultRun"
 ARCHIVE_NAME = "MonteCarlo-Run"
 ARCHIVE_EXTENSION = ".json"
 
+SENSORS_RANGE = range(1,9)
 
 # Monte Carlo Simulation Class
 class MonteCarloCSS:
-
-    def __init__(self, params):
+    def __init__(self, params, sensors_val):
         """Constructor"""
         self.use_css_constellation = params["use_css_constellation"]
         self.use_eclipse = params["use_eclipse"]
         self.use_kelly = params["use_kelly"]
         self.number_of_cycles = params["number_of_cycles"]
-        self.number_of_sensors = params["number_of_sensors"]
+        self.number_of_sensors = sensors_val
         self.is_tampered_fov = params["is_tampered_fov"]
         self.is_tampered_scale_factor = params["is_tampered_scale_factor"]
 
@@ -95,8 +95,8 @@ class MonteCarloCSS:
                 archive_name=ARCHIVE_PATH + ARCHIVE_NAME + str(i) + ARCHIVE_EXTENSION,
             )
 
-    def getPearsonCorrelation(self):
-        """Get the Pearson correlation between the default run and each Monte Carlo runs"""
+    def getCalculations(self):
+        """Get the Pearson MSE between the default run and each Monte Carlo runs"""
         # open the default run archive
         with open(ARCHIVE_PATH + ARCHIVE_DEFAULT_NAME + ARCHIVE_EXTENSION, "r") as f:
             default_data = load(f)
@@ -209,18 +209,18 @@ def displayBoard(df, title="Results"):
 
 
 if __name__ == "__main__":
-
     # Create the archive folder
     if not os.path.exists(ARCHIVE_PATH):
         os.makedirs(ARCHIVE_PATH)
 
-    correlations = []
+    results = []
 
     for parameters in SIMULATIONS_PARAMETERS:
-        monteCarlo = MonteCarloCSS(parameters)
-        monteCarlo.runDefault()
-        monteCarlo.runMonteCarlo()
-        correlations.append(monteCarlo.getPearsonCorrelation())
+        for sensors_val in SENSORS_RANGE:
+            monteCarlo = MonteCarloCSS(parameters, sensors_val)
+            monteCarlo.runDefault()
+            monteCarlo.runMonteCarlo()
+            results.append(monteCarlo.getCalculations())
 
     data = {
         "use_css_constellation": [],
@@ -237,36 +237,79 @@ if __name__ == "__main__":
         data["use_eclipse"].append(params["use_eclipse"])
         data["use_kelly"].append(params["use_kelly"])
         data["number_of_cycles"].append(params["number_of_cycles"])
-        data["number_of_sensors"].append(params["number_of_sensors"])
+        data["number_of_sensors"].append(SENSORS_RANGE)
         data["is_tampered_fov"].append(params["is_tampered_fov"])
         data["is_tampered_scale_factor"].append(params["is_tampered_scale_factor"])
 
     simulation_df = pd.DataFrame(data)
 
-    min_corr = []
-    max_corr = []
-    avg_corr = []
-    std_corr = []
+    min_mse_values = []
+    max_mse_values = []
+    avg_mse_values = []
+    std_mse_values = []
 
-    for corr in correlations:
-        print(corr)
-        # get the min, max, average and standard deviation of the correlation factors for each simulation
-        min_corr.append(min(corr))
-        max_corr.append(max(corr))
-        avg_corr.append(sum(corr) / len(corr))
-        std_corr.append(pd.Series(corr).std())
+    for idx, mse_values in enumerate(results):
+        # get the min, max, average and standard deviation of the MSE factors for each simulation
+        min_mse_values.append(min(mse_values))
+        max_mse_values.append(max(mse_values))
+        avg_mse_values.append(sum(mse_values) / len(mse_values))
+        std_mse_values.append(pd.Series(mse_values).std())
 
     data = {
-        "min_corr": min_corr,
-        "max_corr": max_corr,
-        "avg_corr": avg_corr,
-        "std_corr": std_corr,
+        "min_mse_values": min_mse_values,
+        "max_mse_values": max_mse_values,
+        "avg_mse_values": avg_mse_values,
+        "std_mse_values": std_mse_values,
     }
 
-    corr_df = pd.DataFrame(data)
+    mse_df = pd.DataFrame(data)
+
+
+
+    fig = go.Figure()
+
+    results = np.array(results) 
+    # Loop over simulations and add them to the plot
+    for sim_idx in range(len(SIMULATIONS_PARAMETERS)):
+        # Extract the rows for the current simulation
+        sensors = len(SENSORS_RANGE)
+        sim_mse = results[sim_idx * sensors:(sim_idx + 1) * (sensors), :]
+        
+        # Calculate mean and standard deviation for each sensor count across repetitions
+        sim_mean = np.mean(sim_mse, axis=1)  # Mean MSE for current simulation
+        sim_std = np.std(sim_mse, axis=1)    # Std deviation for current simulation
+        
+        # Add trace for the current simulation
+        fig.add_trace(go.Scatter(
+            x=list(SENSORS_RANGE), 
+            y=sim_mean, 
+            mode='lines+markers', 
+            name=f'Simulation {sim_idx + 1}',
+            error_y=dict(
+                type='data', 
+                array=sim_std,  # Standard deviation as error bars
+                visible=True
+            ),
+            # line=dict(
+            #     color=f'rgba({50 * sim_idx}, {100 + 50 * sim_idx}, {150 + 50 * sim_idx}, 1)'
+            # )  # Dynamic coloring for each simulation
+        ))
+
+    # Set plot title and labels
+    fig.update_layout(
+        title='MSE with Error Bars Across Sensors for Multiple Simulations',
+        xaxis_title='Number of Sensors',
+        yaxis_title='Mean Squared Error',
+        template="plotly_white"
+    )
+
+    # Save the plot as a PNG
+    fig.write_image(f"mse_error_bars_multiple_simulations_plot_runs={NUMBER_OF_RUNS}.png")
 
     # displayBoard(simulation_df, "Simulations Parameters")
-    displayBoard(corr_df, "Correlation Factors")
+    displayBoard(mse_df, "MSE Factors")
 
     # Delete the archive folder
     shutil.rmtree(ARCHIVE_PATH)
+
+

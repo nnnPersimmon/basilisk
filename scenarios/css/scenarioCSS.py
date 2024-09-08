@@ -60,7 +60,6 @@ def run_click(
 
 def run(
     use_css_constellation,
-    use_platform,
     use_eclipse,
     use_kelly,
     number_of_cycles,
@@ -68,6 +67,7 @@ def run(
     sensor_params=DEFAULT_CSS_CONFIG["params"],
     is_archive=False,
     archive_name="defaultName",
+    use_platform=True,
 ):
     """
     Run the simulation with the specified parameters.
@@ -116,7 +116,8 @@ def run(
         CSS.fov = sensor_params[i]["fov"] * macros.D2R
         CSS.r_B = DEFAULT_CSS_CONFIG["params"][i]["r_B"]
         CSS.scaleFactor = sensor_params[i]["scaleFactor"]
-        CSS.kellyFactor = sensor_params[i]["kellyFactor"]
+        # TODO: took off kelly factor otherwise it was crashing
+        # CSS.kellyFactor = sensor_params[i]["kellyFactor"]
         if use_platform:
             CSS.theta = DEFAULT_CSS_CONFIG["params"][i]["theta"] * macros.D2R
             CSS.phi = DEFAULT_CSS_CONFIG["params"][i]["phi"] * macros.D2R
