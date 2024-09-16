@@ -3,19 +3,27 @@ import os
 import click
 import matplotlib.pyplot as plt
 import numpy as np
+
 # The path to the location of Basilisk
 # Used to get the location of supporting data.
 from Basilisk import __path__
+
 # import message declarations
 from Basilisk.architecture import messaging
+
 # import simulation related support
 from Basilisk.simulation import albedo, coarseSunSensor, eclipse, spacecraft
+
 # import general simulation support files
 from Basilisk.utilities import (  # general support file with common unit test functions
-    SimulationBaseClass, macros)
+    SimulationBaseClass,
+    macros,
+)
 from Basilisk.utilities import orbitalMotion as om
 from Basilisk.utilities import (  # general support file with common unit test functions
-    simIncludeGravBody, unitTestSupport)
+    simIncludeGravBody,
+    unitTestSupport,
+)
 
 from config import DEFAULT_CSS_CONFIG
 

@@ -21,10 +21,11 @@ from Basilisk.simulation import albedo, coarseSunSensor, eclipse, spacecraft
 from Basilisk.utilities import SimulationBaseClass, macros
 from Basilisk.utilities import orbitalMotion as om
 from Basilisk.utilities import simIncludeGravBody, unitTestSupport
-from Basilisk.utilities.MonteCarlo.Controller import (Controller,
-                                                      RetentionPolicy)
+from Basilisk.utilities.MonteCarlo.Controller import Controller, RetentionPolicy
 from Basilisk.utilities.MonteCarlo.Dispersions import (
-    NormalVectorCartDispersion, UniformDispersion)
+    NormalVectorCartDispersion,
+    UniformDispersion,
+)
 
 NUMBER_OF_RUNS = 10
 NUMBER_OF_RUNS = 10

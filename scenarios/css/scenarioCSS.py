@@ -8,10 +8,14 @@ from Basilisk import __path__
 from Basilisk.architecture import messaging
 from Basilisk.simulation import coarseSunSensor, spacecraft
 from Basilisk.utilities import (  # general support file with common unit test functions
-    SimulationBaseClass, macros)
+    SimulationBaseClass,
+    macros,
+)
 from Basilisk.utilities import orbitalMotion as om
 from Basilisk.utilities import (  # general support file with common unit test functions
-    unitTestSupport, vizSupport)
+    unitTestSupport,
+    vizSupport,
+)
 
 from config import DEFAULT_CSS_CONFIG
 
