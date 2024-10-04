@@ -1,5 +1,15 @@
 # Monte Carlo configs
 NUMBER_OF_RUNS = 100  # per simulation
+SIMULATION_TIME_STEP = 1.0  # in seconds
+
+ARCHIVE_PATH = "scenarios/css/mcarchive/"
+ARCHIVE_DEFAULT_NAME = "MonteCarlo-DefaultRun"
+ARCHIVE_NAME = "MonteCarlo-Run"
+ARCHIVE_EXTENSION = ".json"
+
+SENSORS_RANGE = range(1,9)
+
+ACCEPTED_THRESHOLD = 0.1
 
 # Default Configuration for the CSS Scenario
 DEFAULT_CSS_CONFIG = {

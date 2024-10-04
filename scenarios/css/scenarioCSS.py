@@ -13,7 +13,7 @@ from Basilisk.utilities import orbitalMotion as om
 from Basilisk.utilities import (  # general support file with common unit test functions
     unitTestSupport, vizSupport)
 
-from config import DEFAULT_CSS_CONFIG
+from config import DEFAULT_CSS_CONFIG, SIMULATION_TIME_STEP
 
 TASK_NAME = "css_simulation"
 
@@ -68,13 +68,13 @@ def run(
     is_archive=False,
     archive_name="defaultName",
     use_platform=True,
+    apply_countermeasure=False,
 ):
     """
     Run the simulation with the specified parameters.
 
     Args:
         use_css_constellation (bool): Flag indicating if the CSS Constellation should be used.
-        use_platform (bool): Flag specifying if the Platform should be used.
         use_eclipse (bool): Flag indicating if the Eclipse input message should be used.
         use_kelly (bool): Flag specifying if the Kelly factor should be used.
         number_of_cycles (int): Number of cycles to run the simulation (must be 1 or more).
@@ -82,6 +82,8 @@ def run(
         sensor_params (list): List of dictionaries containing the parameters for the CSS sensors.
         is_archive (bool): Flag indicating if the results should be archived.
         archive_name (str): Name of the archive file to store the results.
+        use_platform (bool): Flag indicating if the platform should be used.
+        apply_countermeasure (bool): Flag indicating if the countermeasure should be applied.
     """
 
     scSim = create_simulation()
@@ -159,23 +161,58 @@ def run(
             scSim.AddModelToTask(TASK_NAME, cssLog)
             cssLogs.append(cssLog)
 
-    #   initialize Simulation
-    #
-    scSim.InitializeSimulation()
-    #
-    #   configure a simulation stop time and execute the simulation run
-    #
-    scSim.ConfigureStopTime(simulationTime)
-    scSim.ExecuteSimulation()
+    
+    def getLoggedData():
+        data_arrays.clear()
+        if use_css_constellation:
+            data_arrays.append((cssConstLog, cssConstLog.CosValue[:, : len(css_sensors)]))
+        else:
+            for css in cssLogs:
+                data_arrays.append((css, css.OutputData))
 
-    #
-    #   retrieve the logged data
-    #
-    if use_css_constellation:
-        data_arrays.append((cssConstLog, cssConstLog.CosValue[:, : len(css_sensors)]))
+    def isAnomaly():
+        # TODO: implement anomaly detection
+        return False
+
+    def applyCountermeasure(idx):
+        # TODO: implement countermeasure
+        pass
+             
+
+    if not apply_countermeasure:
+        #
+        #   initialize Simulation
+        #
+        scSim.InitializeSimulation()
+        #
+        #   configure a simulation stop time and execute the simulation run
+        #
+        scSim.ConfigureStopTime(simulationTime)
+        scSim.ExecuteSimulation()
+        #
+        #   retrieve the logged data
+        #
+        getLoggedData()
+
     else:
-        for css in cssLogs:
-            data_arrays.append((css, css.OutputData))
+        #
+        #   initialize Simulation
+        #
+        scSim.InitializeSimulation()
+        #
+        #   configure a simulation stop time and execute the simulation run
+        #
+        simulation_step = macros.sec2nano(SIMULATION_TIME_STEP)
+        scSim.ConfigureStopTime(simulation_step)
+        for idx in range(int(simulationTime / simulation_step)):
+            scSim.ExecuteSimulation()
+            scSim.ConfigureStopTime(simulation_step * (2 + idx))
+            #
+            #   retrieve the logged data
+            #
+            getLoggedData()
+            if isAnomaly():
+                applyCountermeasure()
 
     if is_archive:
         # store the data in an json archive

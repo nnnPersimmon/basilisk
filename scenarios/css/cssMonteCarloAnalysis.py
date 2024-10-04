@@ -11,13 +11,6 @@ from scipy.stats import pearsonr
 from config import *
 from scenarioCSS import *
 
-ARCHIVE_PATH = "scenarios/css/mcarchive/"
-ARCHIVE_DEFAULT_NAME = "MonteCarlo-DefaultRun"
-ARCHIVE_NAME = "MonteCarlo-Run"
-ARCHIVE_EXTENSION = ".json"
-
-SENSORS_RANGE = range(1,9)
-
 # Monte Carlo Simulation Class
 class MonteCarloCSS:
     def __init__(self, params, sensors_val):
@@ -93,6 +86,22 @@ class MonteCarloCSS:
                 sensor_params=tampered_params,
                 is_archive=True,
                 archive_name=ARCHIVE_PATH + ARCHIVE_NAME + str(i) + ARCHIVE_EXTENSION,
+            )
+
+    def runMonteCarloWithCounterMeasures(self):
+        """Run the Monte Carlo simulation with countermeasures"""
+        for i in range(NUMBER_OF_RUNS):
+            tampered_params = self.getRandomParams()
+            run(
+                use_css_constellation=self.use_css_constellation,
+                use_eclipse=self.use_eclipse,
+                use_kelly=self.use_kelly,
+                number_of_cycles=self.number_of_cycles,
+                number_of_sensors=self.number_of_sensors,
+                sensor_params=tampered_params,
+                is_archive=True,
+                archive_name=ARCHIVE_PATH + ARCHIVE_NAME + str(i) + ARCHIVE_EXTENSION,
+                apply_countermeasure=True,
             )
 
     def getCalculations(self):
@@ -220,7 +229,9 @@ if __name__ == "__main__":
             monteCarlo = MonteCarloCSS(parameters, sensors_val)
             monteCarlo.runDefault()
             monteCarlo.runMonteCarlo()
+            #monteCarlo.runMonteCarloWithCounterMeasures()
             results.append(monteCarlo.getCalculations())
+            #print(f"Simulation {parameters['name']} with {sensors_val} sensors done")
 
     data = {
         "use_css_constellation": [],
