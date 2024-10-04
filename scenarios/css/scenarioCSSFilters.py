@@ -6,8 +6,13 @@ bskPath = __path__[0]
 
 import matplotlib.pyplot as plt
 from Basilisk.architecture import messaging
-from Basilisk.fswAlgorithms import (okeefeEKF, sunlineEKF, sunlineSEKF,
-                                    sunlineSuKF, sunlineUKF)
+from Basilisk.fswAlgorithms import (
+    okeefeEKF,
+    sunlineEKF,
+    sunlineSEKF,
+    sunlineSuKF,
+    sunlineUKF,
+)
 from Basilisk.simulation import coarseSunSensor, spacecraft
 from Basilisk.utilities import RigidBodyKinematics as rbk
 from Basilisk.utilities import SimulationBaseClass, macros
