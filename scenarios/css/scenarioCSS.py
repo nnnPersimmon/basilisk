@@ -173,14 +173,6 @@ def run(
         else:
             for css in cssLogs:
                 data_arrays.append((css, css.OutputData))
-
-    def isAnomaly():
-        # TODO: implement anomaly detection
-        return False
-
-    def applyCountermeasure(idx):
-        # TODO: implement countermeasure
-        pass
              
 
     if not apply_countermeasure:
@@ -193,11 +185,6 @@ def run(
         #
         scSim.ConfigureStopTime(simulationTime)
         scSim.ExecuteSimulation()
-        #
-        #   retrieve the logged data
-        #
-        getLoggedData()
-
     else:
         #
         #   initialize Simulation
@@ -211,12 +198,11 @@ def run(
         for idx in range(int(simulationTime / simulation_step)):
             scSim.ExecuteSimulation()
             scSim.ConfigureStopTime(simulation_step * (2 + idx))
-            #
-            #   retrieve the logged data
-            #
-            getLoggedData()
-            if isAnomaly():
-                applyCountermeasure()
+
+    #
+    #   retrieve the logged data
+    #
+    getLoggedData()
 
     if is_archive:
         # store the data in an json archive
