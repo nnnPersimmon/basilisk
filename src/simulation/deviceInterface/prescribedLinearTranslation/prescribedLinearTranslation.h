@@ -48,6 +48,7 @@ public:
     double getTransPosInit() const;                                             //!< Getter method for the initial translating body position
 
     ReadFunctor<LinearTranslationRigidBodyMsgPayload> linearTranslationRigidBodyInMsg;    //!< Input msg for the translational reference position and velocity
+    Message<LinearTranslationRigidBodyMsgPayload> linearTranslationRigidBodyOutMsg;       //!< Output msg for the translational reference position and velocity
     Message<PrescribedTranslationMsgPayload> prescribedTranslationOutMsg;                 //!< Output msg for the translational body prescribed states
     PrescribedTranslationMsg_C prescribedTranslationOutMsgC = {};                         //!< C-wrapped Output msg for the translational body prescribed states
 
@@ -88,8 +89,8 @@ private:
     Eigen::Vector3d transHat_M;                                                 //!< Axis along the direction of translation expressed in M frame components
 
     /* Scalar translational states */
-    double transPosInit;                                                        //!< [m] Initial translational body position from M to F frame origin along transHat_M
-    double transPosRef;                                                         //!< [m] Reference translational body position from M to F frame origin along transHat_M
+    double transPosInit;                                                        //!< [m] Initial translational body position from M to P frame origin along transHat_M
+    double transPosRef;                                                         //!< [m] Reference translational body position from M to P frame origin along transHat_M
     double transPos;                                                            //!< [m] Current translational body position along transHat_M
     double transVel;                                                            //!< [m] Current translational body velocity along transHat_M
     double transAccel;                                                          //!< [m] Current translational body acceleration along transHat_M

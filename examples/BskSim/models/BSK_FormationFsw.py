@@ -20,12 +20,15 @@ import math
 
 import numpy as np
 from Basilisk.architecture import messaging
-from Basilisk.fswAlgorithms import (inertial3D, attTrackingError, mrpFeedback,
-                                    rwMotorTorque,
-                                    spacecraftPointing)
+from Basilisk.fswAlgorithms import (
+    attTrackingError,
+    inertial3D,
+    mrpFeedback,
+    rwMotorTorque,
+    spacecraftPointing,
+)
 from Basilisk.utilities import RigidBodyKinematics as rbk
-from Basilisk.utilities import fswSetupRW
-from Basilisk.utilities import deprecated
+from Basilisk.utilities import deprecated, fswSetupRW
 from Basilisk.utilities import macros as mc
 
 
@@ -118,27 +121,44 @@ class BSKFswModels():
         # Create events to be called for triggering GN&C maneuvers
         SimBase.fswProc.disableAllTasks()
 
-        SimBase.createNewEvent("initiateStandby", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'standby'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()"
-                                ])
+        SimBase.createNewEvent(
+            "initiateStandby",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "standby",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+            ),
+        )
 
-        SimBase.createNewEvent("initiateAttitudeGuidance", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'inertial3D'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('inertial3DPointTask')",
-                                "self.enableTask('mrpFeedbackRWsTask')",
-                                "self.enableTask('inertial3DPointTask2')",
-                                "self.enableTask('mrpFeedbackRWsTask2')"])
+        SimBase.createNewEvent(
+            "initiateAttitudeGuidance",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "inertial3D",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("inertial3DPointTask"),
+                self.enableTask("mrpFeedbackRWsTask"),
+                self.enableTask("inertial3DPointTask2"),
+                self.enableTask("mrpFeedbackRWsTask2"),
+            ),
+        )
 
-        SimBase.createNewEvent("initiateSpacecraftPointing", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'spacecraftPointing'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('spacecraftPointingTask')",
-                                "self.enableTask('mrpFeedbackTask')"])
+        SimBase.createNewEvent(
+            "initiateSpacecraftPointing",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "spacecraftPointing",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("spacecraftPointingTask"),
+                self.enableTask("mrpFeedbackTask"),
+            ),
+        )
 
     # ------------------------------------------------------------------------------------------- #
     # These are module-initialization methods
@@ -274,181 +294,3 @@ class BSKFswModels():
         self.attGuid2Msg.write(messaging.AttGuidMsgPayload())
         self.cmdRwMotorMsg.write(messaging.ArrayMotorTorqueMsgPayload())
         self.cmdRwMotor2Msg.write(messaging.ArrayMotorTorqueMsgPayload())
-
-
-    @property
-    def inertial3DData(self):
-        return self.inertial3D
-
-    inertial3DData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to inertial3DData as inertial3D",
-        inertial3DData)
-
-    @property
-    def inertial3DWrap(self):
-        return self.inertial3D
-
-    inertial3DWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to inertial3DWrap as inertial3D",
-        inertial3DWrap)
-
-
-    @property
-    def trackingErrorData(self):
-        return self.trackingError
-
-    trackingErrorData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to trackingErrorData as trackingError",
-        trackingErrorData)
-
-    @property
-    def trackingErrorWrap(self):
-        return self.trackingError
-
-    trackingErrorWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to trackingErrorWrap as trackingError",
-        trackingErrorWrap)
-
-
-    @property
-    def mrpFeedbackRWsData(self):
-        return self.mrpFeedbackRWs
-
-    mrpFeedbackRWsData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackRWsData as mrpFeedbackRWs",
-        mrpFeedbackRWsData)
-
-    @property
-    def mrpFeedbackRWsWrap(self):
-        return self.mrpFeedbackRWs
-
-    mrpFeedbackRWsWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackRWsWrap as mrpFeedbackRWs",
-        mrpFeedbackRWsWrap)
-
-
-    @property
-    def rwMotorTorqueData(self):
-        return self.rwMotorTorque
-
-    rwMotorTorqueData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rwMotorTorqueData as rwMotorTorque",
-        rwMotorTorqueData)
-
-    @property
-    def rwMotorTorqueWrap(self):
-        return self.rwMotorTorque
-
-    rwMotorTorqueWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rwMotorTorqueWrap as rwMotorTorque",
-        rwMotorTorqueWrap)
-
-    @property
-    def inertial3DData2(self):
-        return self.inertial3D2
-
-    inertial3DData2 = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to inertial3DData2 as inertial3D2",
-        inertial3DData2)
-
-    @property
-    def inertial3DWrap2(self):
-        return self.inertial3D2
-
-    inertial3DWrap2 = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to inertial3DWrap2 as inertial3D2",
-        inertial3DWrap2)
-
-
-    @property
-    def trackingErrorData2(self):
-        return self.trackingError2
-
-    trackingErrorData2 = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to trackingErrorData2 as trackingError2",
-        trackingErrorData2)
-
-    @property
-    def trackingErrorWrap2(self):
-        return self.trackingError2
-
-    trackingErrorWrap2 = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to trackingErrorWrap2 as trackingError2",
-        trackingErrorWrap2)
-
-
-    @property
-    def mrpFeedbackRWsData2(self):
-        return self.mrpFeedbackRWs2
-
-    mrpFeedbackRWsData2 = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackRWsData2 as mrpFeedbackRWs2",
-        mrpFeedbackRWsData2)
-
-    @property
-    def mrpFeedbackRWsWrap2(self):
-        return self.mrpFeedbackRWs2
-
-    mrpFeedbackRWsWrap2 = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackRWsWrap2 as mrpFeedbackRWs2",
-        mrpFeedbackRWsWrap2)
-
-
-    @property
-    def rwMotorTorqueData2(self):
-        return self.rwMotorTorque2
-
-    rwMotorTorqueData2 = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rwMotorTorqueData2 as rwMotorTorque2",
-        rwMotorTorqueData2)
-
-    @property
-    def rwMotorTorqueWrap2(self):
-        return self.rwMotorTorque2
-
-    rwMotorTorqueWrap2 = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rwMotorTorqueWrap2 as rwMotorTorque2",
-        rwMotorTorqueWrap2)
-    
-    @property
-    def mrpFeedbackControlData(self):
-        return self.mrpFeedbackControl
-
-    mrpFeedbackControlData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackControlData as mrpFeedbackControl",
-        mrpFeedbackControlData)
-
-    @property
-    def mrpFeedbackControlWrap(self):
-        return self.mrpFeedbackControl
-
-    mrpFeedbackControlWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackControlWrap as mrpFeedbackControl",
-        mrpFeedbackControlWrap)
-
-    @property
-    def spacecraftPointingWrap(self):
-        return self.spacecraftPointing
-
-    spacecraftPointingWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to spacecraftPointingWrap as spacecraftPointing",
-        spacecraftPointingWrap)

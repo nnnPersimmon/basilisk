@@ -24,7 +24,7 @@
 
 /*!
     This method initializes the output messages for this module.
- @return void
+
  @param configData The configuration data associated with this module
  @param moduleID The module identifier
  */
@@ -37,7 +37,7 @@ void SelfInit_forceTorqueThrForceMapping(forceTorqueThrForceMappingConfig  *conf
 /*! This method performs a complete reset of the module.  Local module variables that retain
     time varying states between function calls are reset to their default values.
     Check if required input messages are connected.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime [ns] time the method is called
  @param moduleID The module identifier
@@ -53,6 +53,7 @@ void Reset_forceTorqueThrForceMapping(forceTorqueThrForceMappingConfig *configDa
 
     VehicleConfigMsgPayload vehConfigInMsgBuffer;  //!< local copy of message buffer
     THRArrayConfigMsgPayload thrConfigInMsgBuffer;  //!< local copy of message buffer
+    THRArrayCmdForceMsgPayload thrForceCmdOutMsgBuffer;  //!< local copy of message buffer
 
     //!< read the rest of the input messages
     thrConfigInMsgBuffer = THRArrayConfigMsg_C_read(&configData->thrConfigInMsg);
@@ -74,11 +75,15 @@ void Reset_forceTorqueThrForceMapping(forceTorqueThrForceMappingConfig *configDa
             _bskLog(configData->bskLogger, BSK_ERROR, "Error: forceTorqueThrForceMapping: A configured thruster has a non-sensible saturation limit of <= 0 N!");
         }
     }
+
+    /* zero the thruster force command output message */
+    thrForceCmdOutMsgBuffer = THRArrayCmdForceMsg_C_zeroMsgPayload();
+    THRArrayCmdForceMsg_C_write(&thrForceCmdOutMsgBuffer, &configData->thrForceCmdOutMsg, moduleID, callTime);
 }
 
 
 /*! Add a description of what this main Update() routine does for this module
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The module identifier
@@ -178,7 +183,7 @@ void Update_forceTorqueThrForceMapping(forceTorqueThrForceMappingConfig *configD
     }
 
     /* Compute the minimum norm inverse of DG*/
-    double DGT_DGDGT_inv[6*6];
+    double DGT_DGDGT_inv[6*MAX_EFF_CNT];
     mMinimumNormInverse(DG_full, (size_t) 6-numZeroes, (size_t) MAX_EFF_CNT, DGT_DGDGT_inv);
 
     /* Compute the force for each thruster */
@@ -201,4 +206,3 @@ void Update_forceTorqueThrForceMapping(forceTorqueThrForceMappingConfig *configD
     vCopy(forceSubtracted_B, configData->numThrusters, thrForceCmdOutMsgBuffer.thrForce);
     THRArrayCmdForceMsg_C_write(&thrForceCmdOutMsgBuffer, &configData->thrForceCmdOutMsg, moduleID, callTime);
 }
-

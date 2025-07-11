@@ -1,27 +1,9 @@
-cmake_minimum_required(VERSION 3.14)
-if(POLICY CMP0078)
-  cmake_policy(SET CMP0078 NEW)
-endif()
+cmake_minimum_required(VERSION 3.26)
+# cmake>=3.18 is required for FindPython3 to work. See https://github.com/pypa/manylinux/issues/613
+# cmake>=3.26 is required for FindPython3 SABIModule.
+# XXX: Some versions of CMake around 3.21~3.26 crash CMake on Windows. Reason and range is still TBD.
 
-if(POLICY CMP0025)
-  cmake_policy(SET CMP0025 NEW)
-endif()
 
-if(POLICY CMP0057)
-  cmake_policy(SET CMP0057 NEW)
-endif()
-
-if(POLICY CMP0086)
-  cmake_policy(SET CMP0086 NEW)
-endif()
-
-if(POLICY CMP0068)
-  cmake_policy(SET CMP0068 NEW)
-endif()
-
-if(POLICY CMP0046)
-  cmake_policy(SET CMP0046 NEW)
-endif()
 
 project("basilisk")
 
@@ -41,6 +23,59 @@ list(APPEND CMAKE_PREFIX_PATH "${CMAKE_BINARY_DIR}/conan")
 
 include(bskTargetExcludeBuildOptions)
 
+# Find necessary packages
+find_package(Python3 ${PYTHON_VERSION} EXACT REQUIRED COMPONENTS Interpreter Development.Module OPTIONAL_COMPONENTS Development.SABIModule)
+
+# check for deprecated python 3.8
+if(Python3_VERSION VERSION_LESS "3.9")
+    message(WARNING "You are using Python ${Python3_VERSION}, but support for Python < 3.9 is deprecated and will be removed in April 2026.")
+endif()
+
+# Find SWIG early (no version requirement yet)
+find_package(SWIG REQUIRED COMPONENTS python)
+
+# Check both versions
+if(Python3_VERSION VERSION_GREATER_EQUAL 3.12)
+  if(SWIG_VERSION VERSION_LESS "4.2.0")
+    message(FATAL_ERROR
+      "Python ${Python3_VERSION} requires SWIG 4.2.0 or newer, but found SWIG ${SWIG_VERSION}."
+    )
+  endif()
+endif()
+
+# Now safely require SWIG in the appropriate version range
+if(Python3_VERSION VERSION_GREATER_EQUAL 3.12)
+  find_package(SWIG 4.2...<5 REQUIRED COMPONENTS python)
+else()
+  find_package(SWIG 4.0...<5 REQUIRED COMPONENTS python)
+endif()
+include(${SWIG_USE_FILE})
+
+# Set the Python module library to be linked to.
+set(PYTHON3_MODULE Python3::Module)
+if(PY_LIMITED_API AND NOT PY_LIMITED_API STREQUAL "")
+  message(STATUS "Requested Py_LIMITED_API=${PY_LIMITED_API}")
+  message(STATUS "(Refer to https://docs.python.org/3/c-api/stable.html#limited-c-api for details)")
+
+  if(${SWIG_VERSION} VERSION_LESS 4.2)
+    message(FATAL_ERROR "Could not find a suitable version of SWIG (found ${SWIG_VERSION}, need SWIG>=4.2.0)")
+  endif()
+
+  if(NOT Python3_Development.SABIModule_FOUND)
+    message(FATAL_ERROR "Could not find the required Python3 Stable ABI module!")
+  endif()
+
+  # Set the Python API to limited mode, to provide wider ABI
+  # compatibility (basically, we can build a single Python wheel to
+  # support all future Python versions).
+  # See https://docs.python.org/3/c-api/stable.html
+  # NOTE: Swig 4.2.0 is required, see https://github.com/swig/swig/pull/2727
+  add_definitions("-DPy_LIMITED_API=${PY_LIMITED_API}")  # Support for current Python version
+
+  # Force libraries to link to the Stable ABI module instead.
+  # This especially fixes an issue with Windows, because
+  set(PYTHON3_MODULE Python3::SABIModule)
+endif()
 
 # ! create_symlinks : create symlinks to support files in source rather than keeping them in dist The function takes one
 # required argument and N optional arguments. \argn: a list of supporting file paths
@@ -122,7 +157,7 @@ function(sub_dir_list result curdir)
 endfunction(sub_dir_list)
 
 # add header search directories
-include_directories("${CMAKE_SOURCE_DIR}/../dist3/autoSource")
+include_directories("${CMAKE_BINARY_DIR}/autoSource")
 include_directories("${CMAKE_SOURCE_DIR}")
 
 function(generate_package_libraries INIT_DIRECTORY AllLibs)
@@ -137,6 +172,11 @@ function(generate_package_libraries INIT_DIRECTORY AllLibs)
     string(FIND ${PARENT_DIR} "/" DIR_NAME_IDX REVERSE)
     math(EXPR DIR_NAME_IDX "${DIR_NAME_IDX} + 1") # "simulation/"
     string(SUBSTRING ${PARENT_DIR} ${DIR_NAME_IDX} -1 PARENT_DIR_NAME) # Should be "power"
+
+    if(${PARENT_DIR_NAME} IN_LIST EXCLUDED_BSK_LIBRARIES)
+      message("Skipped Package Library: ${PARENT_DIR_NAME}")
+        continue()
+    endif()
 
     # Set the library name (ex. dynamicsLib, environmentLib, etc)
     set(LIB_NAME "${PARENT_DIR_NAME}Lib")
@@ -158,12 +198,24 @@ function(generate_package_libraries INIT_DIRECTORY AllLibs)
     # Add to list of library
     list(APPEND AllLibs ${LIB_NAME})
 
+    # If the library directory has a Custom.cmake, include that
+    if(EXISTS "${CMAKE_SOURCE_DIR}/${LIB_DIR}/Custom.cmake")
+      message(STATUS "Including custom Custom.cmake for package lib: ${LIB_DIR}")
+      include("${CMAKE_SOURCE_DIR}/${LIB_DIR}/Custom.cmake")
+    endif()
+
     # Link all necessary libraries
-    target_link_libraries(${LIB_NAME} PUBLIC ArchitectureUtilities)
     target_link_libraries(${LIB_NAME} PRIVATE ModuleIdGenerator)
-    target_link_libraries(${LIB_NAME} PUBLIC cMsgCInterface)
-    target_link_libraries(${LIB_NAME} PRIVATE ${PYTHON_LIBRARIES})
+    target_link_libraries(${LIB_NAME} PRIVATE ${PYTHON3_MODULE})
     target_link_libraries(${LIB_NAME} PRIVATE Eigen3::Eigen3)
+    if(${PARENT_DIR_NAME} STREQUAL "mujocoDynamics")
+      target_link_libraries(${LIB_NAME} PUBLIC dynamicsLib)
+      # dynamicsLib already has ArchitectureUtilities and cMsgCInterface
+      # publicly linked, so no need to add them (again) for mujocoDynamics
+    else()
+      target_link_libraries(${LIB_NAME} PUBLIC ArchitectureUtilities)
+      target_link_libraries(${LIB_NAME} PUBLIC cMsgCInterface)
+    endif()
 
     # define build location, IDE generation specifications
     set_target_properties(${LIB_NAME} PROPERTIES FOLDER ${PARENT_DIR})
@@ -199,10 +251,6 @@ endfunction(find_package_targets)
 
 function(generate_package_targets TARGET_LIST LIB_DEP_LIST MODULE_DIR)
 
-  find_package(SWIG REQUIRED)
-  include(UseSWIG REQUIRED)
-  find_package(PythonLibs 3 REQUIRED)
-
   if(TARGET_LIST)
     string(REPLACE "/" ";" DirList "${TARGET_LIST}")
     list(GET DirList 1 SUBMODULE)
@@ -216,6 +264,20 @@ function(generate_package_targets TARGET_LIST LIB_DEP_LIST MODULE_DIR)
       "${CMAKE_SOURCE_DIR}/architecture/_GeneralModuleFiles/*.cpp"
       "${CMAKE_SOURCE_DIR}/architecture/_GeneralModuleFiles/*.h"
       "${CMAKE_SOURCE_DIR}/architecture/_GeneralModuleFiles/*.i")
+
+    # mujocoDynamics is special in that it also gets to see the
+    # dynamics/_GeneralModuleFiles headers
+    if(${MODULE_DIR} STREQUAL "simulation/mujocoDynamics")
+      file(
+        GLOB
+        GEN_FILES_DYNAMICS
+        "${CMAKE_SOURCE_DIR}/simulation/dynamics/_GeneralModuleFiles/*.c"
+        "${CMAKE_SOURCE_DIR}/simulation/dynamics/_GeneralModuleFiles/*.cpp"
+        "${CMAKE_SOURCE_DIR}/simulation/dynamics/_GeneralModuleFiles/*.h"
+        "${CMAKE_SOURCE_DIR}/simulation/dynamics/_GeneralModuleFiles/*.i"
+      )
+      list (APPEND GEN_FILES ${GEN_FILES_DYNAMICS})
+    endif()
 
     if(${MODULE_DIR} STREQUAL "ExternalModules")
       file(
@@ -279,8 +341,13 @@ function(generate_package_targets TARGET_LIST LIB_DEP_LIST MODULE_DIR)
       message(STATUS "Including custom Custom.cmake for: ${TARGET_FILE}")
       include("${PARENT_DIR}/Custom.cmake")
     endif()
+    # Also look for a Custom.cmake on the _GeneralModuleFiles
+    if(EXISTS "${MODULE_DIR}/${SUBMODULE}/_GeneralModuleFiles/Custom.cmake")
+      message(STATUS "Including custom Custom.cmake for: ${TARGET_FILE}")
+      include("${MODULE_DIR}/${SUBMODULE}/_GeneralModuleFiles/Custom.cmake")
+    endif()
 
-    target_include_directories(${TARGET_NAME} PRIVATE ${PYTHON_INCLUDE_PATH}) # Exposes python.h to wrap.c(xx) file
+    target_include_directories(${TARGET_NAME} PRIVATE ${Python3_INCLUDE_DIRS}) # Exposes python.h to wrap.c(xx) file
     target_include_directories(
       ${TARGET_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/${PARENT_DIR}) # Exposes module .h files to the PYTHON_wrap.c(xx) file
                                                                 # (not located in src)
@@ -328,19 +395,65 @@ function(generate_package_targets TARGET_LIST LIB_DEP_LIST MODULE_DIR)
 endfunction(generate_package_targets)
 
 # Start of main projection configuration
-find_package(PythonInterp 3 REQUIRED)
-find_package(PythonLibs 3 REQUIRED)
 
 include(FetchContent)
 FetchContent_Declare(
   googletest
-  URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+  URL https://github.com/google/googletest/archive/refs/tags/v1.17.0.zip
 )
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
 enable_testing()
+
+
+# Function to download and move files
+function(download_and_move_file url destination)
+    get_filename_component(filename "${destination}" NAME)
+    set(temp_file "${CMAKE_BINARY_DIR}/data/${filename}")
+
+    if(NOT EXISTS "${destination}")
+        message(STATUS "File ${filename} not found, downloading from ${url}...")
+
+        # Download the file and show a progress bar
+        file(DOWNLOAD
+            "${url}"
+            "${temp_file}"
+            SHOW_PROGRESS
+            STATUS DOWNLOAD_RESULT_CODE
+        )
+
+        # Check for download errors
+        if(NOT DOWNLOAD_RESULT_CODE EQUAL 0)
+            message(FATAL_ERROR "Failed downloading ${filename}! Error code: ${DOWNLOAD_RESULT_CODE}.")
+        endif()
+
+        # Move the file into the appropriate directory
+        file(RENAME "${temp_file}" "${destination}")
+        message(STATUS "Downloaded and moved ${filename} to ${destination}.")
+    else()
+        message(STATUS "File ${filename} already exists.")
+    endif()
+endfunction()
+
+# Define download URLs and target paths
+set(SPICE_FILES
+    "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp::${CMAKE_SOURCE_DIR}/../supportData/EphemerisData/de430.bsp"
+    "https://naif.jpl.nasa.gov/pub/naif/HST/kernels/spk/hst_edited.bsp::${CMAKE_SOURCE_DIR}/../supportData/EphemerisData/hst_edited.bsp"
+    "https://naif.jpl.nasa.gov/pub/naif/pds/data/nh-j_p_ss-spice-6-v1.0/nhsp_1000/data/spk/nh_pred_od077.bsp::${CMAKE_SOURCE_DIR}/../supportData/EphemerisData/nh_pred_od077.bsp"
+)
+
+# Process each large data file
+message(STATUS "Checking large Basilisk data files")
+foreach(spice_file IN LISTS SPICE_FILES)
+    string(REPLACE "::" ";" spice_parts "${spice_file}")
+    list(GET spice_parts 0 url)
+    list(GET spice_parts 1 destination)
+    download_and_move_file("${url}" "${destination}")
+endforeach()
+
+
 
 # TODO: Remove the global link-libraries call
 find_package(Eigen3 CONFIG REQUIRED)
@@ -438,35 +551,32 @@ endif()
 
 # TODO: Move the cspice library extension into a custom pyswice CMakeList.txt Manually create list of libraries
 # depending on system
+find_package(cspice REQUIRED CONFIG)
+set(library_dependencies cspice::cspice)
 if(WIN32)
   set(CMAKE_MSVCIDE_RUN_PATH "${CMAKE_BINARY_DIR}/Basilisk")
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS YES)
-  set(library_dependencies ${CMAKE_SOURCE_DIR}/../libs/cspice/lib/cspice_win${_arch_suffix}.lib)
   # fix for opencv not finding conan gflags for opencv sfm lib on windows when the finding is fixed, the following line
   # should be removed https://github.com/conan-community/community/issues/210
   list(REMOVE_ITEM CONAN_LIBS opencv_sfm411d multiview)
 
 elseif(APPLE)
-  if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64")
-    set(library_dependencies ${CMAKE_SOURCE_DIR}/../libs/cspice/lib/cspice_osx_arm64.a)
-  else()
-    set(library_dependencies ${CMAKE_SOURCE_DIR}/../libs/cspice/lib/cspice_osx.a)
-  endif()
-
   set(CMAKE_SKIP_BUILD_RPATH FALSE) # use, i.e. don't skip the full RPATH for the build tree
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE) # when building, don't use the install RPATH already (but later on when
                                            # installing)
-  set(CMAKE_INSTALL_RPATH "${CMAKE_BINARY_DIR}/Basilisk") # the RPATH to be used when installing
+  set(CMAKE_INSTALL_RPATH "${CMAKE_BINARY_DIR}/Basilisk"  # the RPATH to be used when installing
+      # Also add relative paths so we can install from wheel/sdist.
+      # TODO: Is there a proper way to set relative library paths without just
+      # guessing how many parent ".." directories to use?
+      "@loader_path"
+      "@loader_path/.."
+      "@loader_path/../.."
+  )
 
   # don't add the automatically determined parts of the RPATH which point to directories outside the build tree to the
   # install RPATH
   set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 else()
-  if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^(arm64|aarch64)$")
-    set(library_dependencies ${CMAKE_SOURCE_DIR}/../libs/cspice/lib/cspice_arm64.a)
-  else()
-    set(library_dependencies ${CMAKE_SOURCE_DIR}/../libs/cspice/lib/cspice.a)
-  endif()
   set(CMAKE_SKIP_BUILD_RPATH FALSE)
   set(CMAKE_INSTALL_RPATH "\$ORIGIN/../../")
 endif()
@@ -498,6 +608,7 @@ set(ARCHITECTURE_LIBS architectureLib ArchitectureUtilities ModuleIdGenerator cM
 
 # Finds relative path of all .i files within the directory
 find_package_targets("${CMAKE_SOURCE_DIR}/simulation/dynamics" DYN_TARGETS)
+find_package_targets("${CMAKE_SOURCE_DIR}/simulation/mujocoDynamics" MULTI_BODY_DYN_TARGETS)
 find_package_targets("${CMAKE_SOURCE_DIR}/simulation/environment" ENV_TARGETS)
 find_package_targets("${CMAKE_SOURCE_DIR}/simulation/onboardDataHandling" DATA_TARGETS)
 find_package_targets("${CMAKE_SOURCE_DIR}/simulation/deviceInterface" DEVICE_INTERFACE_TARGETS)
@@ -520,6 +631,10 @@ endif(NOT "${EXTERNAL_MODULES_PATH}" STREQUAL "")
 
 # The quotations around DYN_TARGETS informs function that it is a list
 generate_package_targets("${DYN_TARGETS}" "dynamicsLib;${ARCHITECTURE_LIBS}" "simulation")
+# Only build mujocoDynamics targets if the mujocoDynamics library is available
+if(NOT ("mujocoDynamics" IN_LIST EXCLUDED_BSK_LIBRARIES))
+  generate_package_targets("${MULTI_BODY_DYN_TARGETS}" "mujocoDynamicsLib;dynamicsLib;${ARCHITECTURE_LIBS}" "simulation")
+endif()
 generate_package_targets("${ENV_TARGETS}" "environmentLib;${ARCHITECTURE_LIBS};${library_dependencies}" "simulation")
 generate_package_targets("${DATA_TARGETS}" "onboardDataHandlingLib;${ARCHITECTURE_LIBS};" "simulation")
 generate_package_targets("${DEVICE_INTERFACE_TARGETS}" "${ARCHITECTURE_LIBS};" "simulation")
@@ -583,22 +698,26 @@ find_package_targets("${CMAKE_SOURCE_DIR}/topLevelModules/pyswice" PYSWICE_TARGE
 generate_package_targets("${PYSWICE_TARGETS}" "${ARCHITECTURE_LIBS};${library_dependencies}" "topLevelModules")
 
 # PYTHON PACKAGE CONFIGURATION
-# Must make the build directories first, so that cmake can insert empty init files before build (linux specific need)
+# Must make the build directories first, so that cmake can insert empty init files before build (needed for packaging correctly)
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/Basilisk")
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/Basilisk/architecture")
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/Basilisk/simulation")
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/Basilisk/fswAlgorithms")
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/Basilisk/moduleTemplates")
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/Basilisk/topLevelModules")
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/Basilisk/ExternalModules")
 
-if(WIN32 AND (PYTHON_VERSION VERSION_GREATER 3.8))
+if(WIN32 AND (Python3_VERSION VERSION_GREATER 3.8))
   file(WRITE "${CMAKE_BINARY_DIR}/Basilisk/__init__.py"
        "#init file written by the build\n" "import sys, os\n" "from Basilisk import __path__\n"
-       "bskPath = __path__[0]\n" "os.add_dll_directory(bskPath)\n")
+       "bskPath = __path__[0]\n" "os.add_dll_directory(bskPath)\n"
+       "from Basilisk.architecture import messaging\n")
 else()
-  file(WRITE "${CMAKE_BINARY_DIR}/Basilisk/__init__.py" "#empty init file written by the build")
+  file(WRITE "${CMAKE_BINARY_DIR}/Basilisk/__init__.py"
+      "from Basilisk.architecture import messaging # ensure recorders() work without first importing messaging\n")
 endif()
 
 # TODO: Iterate through all dist directories and add __init__.py's where they don't exist
-file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/Basilisk/topLevelModules")
 file(
   GLOB_RECURSE DIST_DIRECTORIES
   LIST_DIRECTORIES true
@@ -630,19 +749,6 @@ create_symlinks("${CMAKE_BINARY_DIR}/Basilisk/utilities" ${pythonModules})
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/Basilisk/supportData")
 file(GLOB dataFiles "${CMAKE_SOURCE_DIR}/../supportData/*")
 create_symlinks("${CMAKE_BINARY_DIR}/Basilisk/supportData" ${dataFiles})
-
-# run python script to modify swig gen code
-add_custom_target(OverwriteSwig ALL)
-set(ARG utilities/overwriteSwig.py ${CMAKE_BINARY_DIR} ${SWIG_VERSION})
-add_custom_command(
-  TARGET OverwriteSwig
-  COMMAND ${PYTHON_EXECUTABLE} ${ARG}
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/../src/)
-if(TARGET _thrusterDynamicEffector)
-  add_dependencies(OverwriteSwig _thrusterDynamicEffector _vscmgStateEffector _reactionWheelStateEffector)
-elseif(TARGET thrusterDynamicEffector)
-  add_dependencies(OverwriteSwig thrusterDynamicEffector vscmgStateEffector reactionWheelStateEffector)
-endif()
 
 # Tests targets
 add_subdirectory("architecture/utilities/tests")

@@ -31,7 +31,7 @@
     This method initializes the configData for this module.  It creates a single output message of type
     :ref:`THRArrayOnTimeCmdMsgPayload`.
  \endverbatim
- @return void
+
  @param configData The configuration data associated with this module
  @param moduleID The ID associated with the configData
  */
@@ -43,7 +43,7 @@ void SelfInit_thrFiringRemainder(thrFiringRemainderConfig *configData, int64_t m
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The ID associated with the configData
@@ -75,10 +75,13 @@ void Reset_thrFiringRemainder(thrFiringRemainderConfig *configData, uint64_t cal
 		configData->pulseRemainder[i] = 0.0;
 	}
 
+    // Add zero output message
+    THRArrayOnTimeCmdMsgPayload thrOnTimeOut = THRArrayOnTimeCmdMsg_C_zeroMsgPayload();
+    THRArrayOnTimeCmdMsg_C_write(&thrOnTimeOut, &configData->onTimeOutMsg, moduleID, callTime);
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The ID associated with the configData
@@ -110,7 +113,7 @@ void Update_thrFiringRemainder(thrFiringRemainderConfig *configData, uint64_t ca
 	}
 
     /*! - compute control time period Delta_t */
-	controlPeriod = ((double)(callTime - configData->prevCallTime)) * NANO2SEC;
+    controlPeriod = diffNanoToSec(callTime, configData->prevCallTime); /*!< [s] control period */
 	configData->prevCallTime = callTime;
 
 	/*! - Read the input thruster force message */

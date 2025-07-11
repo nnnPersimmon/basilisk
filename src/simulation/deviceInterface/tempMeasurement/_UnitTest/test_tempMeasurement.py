@@ -1,12 +1,12 @@
-# 
+#
 #  ISC License
-# 
+#
 #  Copyright (c) 2023, Autonomous Vehicle Systems Lab, University of Colorado Boulder
-# 
+#
 #  Permission to use, copy, modify, and/or distribute this software for any
 #  purpose with or without fee is hereby granted, provided that the above
 #  copyright notice and this permission notice appear in all copies.
-# 
+#
 #  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 #  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
 #  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
@@ -14,8 +14,8 @@
 #  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 #  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 #  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-# 
-# 
+#
+#
 
 #
 # Thermal Sensor Faults Test
@@ -31,9 +31,10 @@ import os
 import numpy as np
 import pytest
 from Basilisk.architecture import messaging
+from Basilisk.architecture import astroConstants
 from Basilisk.simulation import sensorThermal, tempMeasurement
 from Basilisk.utilities import SimulationBaseClass
-from Basilisk.utilities import macros, astroFunctions
+from Basilisk.utilities import macros
 from Basilisk.utilities import unitTestSupport
 
 path = os.path.dirname(os.path.abspath(__file__))
@@ -44,11 +45,12 @@ path = os.path.dirname(os.path.abspath(__file__))
 @pytest.mark.parametrize(
     "tempFault",
     [
-        "TEMP_FAULT_NOMINAL",    
-        "TEMP_FAULT_STUCK_CURRENT",                           
-        "TEMP_FAULT_STUCK_VALUE", 
-        "TEMP_FAULT_SPIKING",     
-        "BIASED"          
+        "TEMP_FAULT_NOMINAL",
+        "TEMP_FAULT_STUCK_CURRENT",
+        "TEMP_FAULT_STUCK_VALUE",
+        "TEMP_FAULT_SPIKING",
+        "BIASED",
+        "GAUSS_MARKOV"
     ])
 # provide a unique test method name, starting with test_
 def test_sensorThermalFault(tempFault):
@@ -99,7 +101,7 @@ def run(tempFault):
 
     #  set the sun message
     sunMsgPayload = messaging.SpicePlanetStateMsgPayload()
-    sunMsgPayload.PositionVector = [astroFunctions.AU*1000., 0., 0.]
+    sunMsgPayload.PositionVector = [astroConstants.AU*1000., 0., 0.]
     sunMsg = messaging.SpicePlanetStateMsg().write(sunMsgPayload)
 
 
@@ -170,26 +172,26 @@ def run(tempFault):
         unitTestSim.InitializeSimulation()
         unitTestSim.ConfigureStopTime(simulationTime)
         unitTestSim.ExecuteSimulation()
-        nominals = np.array([ 0.,         -0.04439869, -0.08875756, -0.13307667, 
-            -0.17735608, -0.22159584, -0.265796,   -0.30995662, -0.35407775, 
-            -0.39815946, -0.44220178, -0.48620479, -0.53016852, -0.57409304, 
-            -0.6179784,  -0.66182465, -0.70563184, -0.74940004, -0.79312929, 
-            -0.83681965, -0.88047117, -0.9240839,  -0.9676579,  -1.01119321, 
-            -1.0546899,  -1.09814802, -1.14156761, -1.18494873, -1.22829144, 
-            -1.27159578, -1.31486181, -1.35808958, -1.40127914, -1.44443055, 
-            -1.48754385, -1.5306191, -1.57365634, -1.61665564, -1.65961704, 
-            -1.7025406,  -1.74542636, -1.78827437, -1.83108469, -1.87385737, 
-            -1.91659246, -1.95929001, -2.00195007, -2.04457269, -2.08715792, 
-            -2.12970582, -2.17221642, -2.21468979, -2.25712597, -2.29952502, 
-            -2.34188697, -2.38421189, -2.42649982, -2.46875082, -2.51096492, 
-            -2.55314219, -2.59528266, -2.6373864,  -2.67945344, -2.72148384, 
-            -2.76347765, -2.80543491, -2.84735568, -2.88924,    -2.93108792, 
-            -2.9728995 , -3.01467477, -3.05641378, -3.0981166,  -3.13978325, 
-            -3.1814138,  -3.22300829, -3.26456677, -3.30608928, -3.34757587, 
-            -3.38902659, -3.43044149, -3.47182062, -3.51316402, -3.55447174, 
-            -3.59574383, -3.63698033, -3.67818129, -3.71934677, -3.76047679, 
-            -3.80157142, -3.8426307,  -3.88365467, -3.92464338, -3.96559689, 
-            -4.00651522, -4.04739844, -4.08824658, -4.1290597,  -4.16983783, 
+        nominals = np.array([ 0.,         -0.04439869, -0.08875756, -0.13307667,
+            -0.17735608, -0.22159584, -0.265796,   -0.30995662, -0.35407775,
+            -0.39815946, -0.44220178, -0.48620479, -0.53016852, -0.57409304,
+            -0.6179784,  -0.66182465, -0.70563184, -0.74940004, -0.79312929,
+            -0.83681965, -0.88047117, -0.9240839,  -0.9676579,  -1.01119321,
+            -1.0546899,  -1.09814802, -1.14156761, -1.18494873, -1.22829144,
+            -1.27159578, -1.31486181, -1.35808958, -1.40127914, -1.44443055,
+            -1.48754385, -1.5306191, -1.57365634, -1.61665564, -1.65961704,
+            -1.7025406,  -1.74542636, -1.78827437, -1.83108469, -1.87385737,
+            -1.91659246, -1.95929001, -2.00195007, -2.04457269, -2.08715792,
+            -2.12970582, -2.17221642, -2.21468979, -2.25712597, -2.29952502,
+            -2.34188697, -2.38421189, -2.42649982, -2.46875082, -2.51096492,
+            -2.55314219, -2.59528266, -2.6373864,  -2.67945344, -2.72148384,
+            -2.76347765, -2.80543491, -2.84735568, -2.88924,    -2.93108792,
+            -2.9728995 , -3.01467477, -3.05641378, -3.0981166,  -3.13978325,
+            -3.1814138,  -3.22300829, -3.26456677, -3.30608928, -3.34757587,
+            -3.38902659, -3.43044149, -3.47182062, -3.51316402, -3.55447174,
+            -3.59574383, -3.63698033, -3.67818129, -3.71934677, -3.76047679,
+            -3.80157142, -3.8426307,  -3.88365467, -3.92464338, -3.96559689,
+            -4.00651522, -4.04739844, -4.08824658, -4.1290597,  -4.16983783,
             -4.21058103, -4.25128934])
 
         testValue = 0
@@ -209,6 +211,9 @@ def run(tempFault):
         unitTestSim.InitializeSimulation()
         unitTestSim.ConfigureStopTime(simulationTime)
         unitTestSim.ExecuteSimulation()
+    elif tempFault == "GAUSS_MARKOV":
+        [testResults, testMessage] = gauss_markov_test()
+        return [testResults, testMessage]
     else:
         NotImplementedError("Fault type specified does not exist.")
 
@@ -231,6 +236,117 @@ def run(tempFault):
     return [testFailCount, ''.join(testMessages)]
     # each test method requires a single assert method to be called
     # this check below just makes sure no sub-test failures were found
+
+
+def test_gauss_markov_properties():
+    """
+    Test the statistical properties of the Gauss-Markov noise model in tempMeasurement.
+    Tests:
+    1. Error bounds are not violated too often (<0.3% of samples)
+    2. Error bounds are actually being used (at least one >80% excursion)
+    """
+    [testResults, testMessage] = gauss_markov_test()
+    assert testResults < 1, testMessage
+
+def gauss_markov_test():
+    testFailCount = 0
+    testMessages = []
+
+    # Create simulation variable names
+    unitTaskName = "unitTask"
+    unitProcessName = "TestProcess"
+
+    # Create a sim module as an empty container
+    unitTestSim = SimulationBaseClass.SimBaseClass()
+    testProcessRate = macros.sec2nano(1.0)
+    testProc = unitTestSim.CreateNewProcess(unitProcessName)
+    testProc.addTask(unitTestSim.CreateNewTask(unitTaskName, testProcessRate))
+
+    # Set up the thermal sensor model
+    sensorThermalModel = sensorThermal.SensorThermal()
+    sensorThermalModel.ModelTag = 'sensorThermalModel'
+    sensorThermalModel.nHat_B = [0, 0, 1]
+    sensorThermalModel.sensorArea = 1.0
+    sensorThermalModel.sensorAbsorptivity = 0.25
+    sensorThermalModel.sensorEmissivity = 0.34
+    sensorThermalModel.sensorMass = 2.0
+    sensorThermalModel.sensorSpecificHeat = 890
+    sensorThermalModel.sensorPowerDraw = 30.0
+    sensorThermalModel.T_0 = 0
+
+    # Set up required messages
+    scStateMsg = messaging.SCStatesMsg().write(messaging.SCStatesMsgPayload())
+    sunMsg = messaging.SpicePlanetStateMsg().write(messaging.SpicePlanetStateMsgPayload())
+    deviceStatusMsg = messaging.DeviceStatusMsg().write(messaging.DeviceStatusMsgPayload())
+
+    sensorThermalModel.stateInMsg.subscribeTo(scStateMsg)
+    sensorThermalModel.sunInMsg.subscribeTo(sunMsg)
+    sensorThermalModel.sensorStatusInMsg.subscribeTo(deviceStatusMsg)
+    unitTestSim.AddModelToTask(unitTaskName, sensorThermalModel)
+
+    # Set up tempMeasurement module
+    tempMeasurementModel = tempMeasurement.TempMeasurement()
+    tempMeasurementModel.tempInMsg.subscribeTo(sensorThermalModel.temperatureOutMsg)
+
+    # Configure noise parameters
+    tempSigma = 1.0  # Start with larger sigma
+
+    # Set up Gauss-Markov noise with more conservative bounds
+    tempMeasurementModel.faultState = tempMeasurement.TEMP_FAULT_GAUSS_MARKOV
+    tempMeasurementModel.senNoiseStd = tempSigma
+    tempMeasurementModel.walkBounds = 20.0
+
+    # Set RNG seed for repeatability
+    tempMeasurementModel.RNGSeed = 464374481
+
+    unitTestSim.AddModelToTask(unitTaskName, tempMeasurementModel)
+
+    # Setup message logging
+    tempLog = tempMeasurementModel.tempOutMsg.recorder()
+    unitTestSim.AddModelToTask(unitTaskName, tempLog)
+
+    # Run simulation with more samples
+    unitTestSim.InitializeSimulation()
+    simulationTime = macros.sec2nano(100.0)
+    unitTestSim.ConfigureStopTime(simulationTime)
+    unitTestSim.ExecuteSimulation()
+
+    # Extract temperature data for analysis
+    tempData = np.array(tempLog.temperature)
+
+    # Print debug info
+    print(f"Number of samples: {len(tempData)}")
+    print(f"Mean error: {np.mean(np.abs(tempData - sensorThermalModel.T_0))}")
+    print(f"Max error: {np.max(np.abs(tempData - sensorThermalModel.T_0))}")
+    print(f"Bound: {tempMeasurementModel.walkBounds}")
+
+    # Test 1: Statistical Checks
+    countAllow = len(tempData) * 0.3/100.  # Allow 0.3% violations
+    tempDiffCount = 0
+    for temp in tempData:
+        if abs(temp - sensorThermalModel.T_0) > tempMeasurementModel.walkBounds:
+            tempDiffCount += 1
+
+    if tempDiffCount > countAllow:
+        testFailCount += 1
+        testMessages.append(f"FAILED: Too many temperature errors ({tempDiffCount} > {countAllow})")
+
+    # Test 2: Error Bound Usage Check - similar to simpleNav approach
+    sigmaThreshold = 0.8
+    hasLargeError = False
+    for temp in tempData:
+        if abs(temp - sensorThermalModel.T_0) > tempMeasurementModel.walkBounds * sigmaThreshold:
+            hasLargeError = True
+            break
+
+    if not hasLargeError:
+        testFailCount += 1
+        testMessages.append("FAILED: Temperature errors too small")
+
+    if testFailCount == 0:
+        print("PASSED: Gauss-Markov noise tests successful")
+
+    return [testFailCount, ''.join(testMessages)]
 
 
 if __name__ == "__main__":

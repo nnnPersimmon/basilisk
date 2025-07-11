@@ -10,8 +10,118 @@ Basilisk Known Issues
 
 Version |release|
 -----------------
+- pip-based installation in editable mode using ``pip install -e .`` is not currently supported.
+  Developers and users alike should continue to use ``python conanfile.py`` installation.
+
+
+Version 2.7.0
+-------------
+- pip-based installation in editable mode using ``pip install -e .`` is not currently supported.
+  Developers and users alike should continue to use ``python conanfile.py`` installation.
+- When using C++ wrapped sensor objects (CSS, thrusters, reaction wheels), Python references
+  must be explicitly retained to prevent premature garbage collection. The recommended approach
+  is to store these objects directly on your simulation object. For example:
+
+  .. code-block:: python
+     :linenos:
+
+     # Create and configure a CSS device
+     cssDevice = coarseSunSensor.CoarseSunSensor()
+     cssDevice.ModelTag = "css1"
+
+     # Store it on the simulation object to keep it alive
+     scSim.cssDevice = cssDevice  # Prevents garbage collection
+
+  Alternatively, for multiple devices, you can use a list or registry:
+
+  .. code-block:: python
+     :linenos:
+
+     # Store multiple devices
+     scSim.css_devices = []
+     for i in range(4):
+         cssDevice = coarseSunSensor.CoarseSunSensor()
+         cssDevice.ModelTag = f"css{i}"
+         scSim.css_devices.append(cssDevice)
+
+  See specific documentation for:
+
+  - :ref:`coarsesunsensor`
+  - :ref:`reactionWheelStateEffector`
+  - :ref:`thrusterDynamicEffector`
+
+  For working examples, refer to these scenarios:
+
+  - :ref:`scenarioAttitudeFeedback`
+  - :ref:`scenarioCSS`
+
+  Failure to retain references will cause segmentation faults when accessing collected objects.
+
+
+Version 2.6.0
+-------------
+- pip-based installation in editable mode using ``pip install -e .`` is not currently supported.
+  Developers and users alike should continue to use ``python conanfile.py`` installation.
+- When using `senNoiseStd()` to set the sensor noise standard deviations
+  in :ref:`magnetometer` and :ref:`coarsesunsensor`
+  the value was being multiplied by 1.5 when creating the diagonal noise matrix.
+  This 1.5x multiplier has now been removed. This is corrected in current release.
+- SWIG wrapper does not fully support all array types in message payloads. This affects custom message
+  payloads that use these types for array members. Workaround is to add them to ``swig_conly_data.i``.
+- A bug was fixed in the :ref:`facetSRPDynamicEffector` module. A transpose was required to be added to a dcm
+  in order to correctly express rotated facet normals in the spacecraft body frame.
+- The ``MtbEffector.py`` module was not being imported correctly in Python due to lack of ``swig_eigen.i``
+  include file in ``MtbEffector.i``. This is fixed in the current release, however it remains unknown why
+  the dynamics engine is re-swigged for every individual effector/dynamics related class.
+- This release uses ``conan`` version 2.x which creates a new folder ``.conan2`` in
+  the home folder.  Thus, the first time Basilisk is build the project dependencies will
+  be downloaded again into ``.conan2``
+- If configuring and building Basilisk directly with ``conan install`` and ``build`` commands,
+  the ``-if dist3/conan`` argument is no longer needed.  The Basilisk install location is
+  setup with ``conan 2`` arguments inside ``conanfile.py``.
+- :ref:`simIncludeGravBody` set the moon radius in km, not meters, and was thus 1000x too small when visualized.
+- In the python library :ref:`RigidBodyKinematics` the ``subMRP()`` routine didn't compute the expected
+  result if the denominator was small.  This is now corrected.
+- :ref:`groundLocation` was not respecting the case where ``maximumRange == -1.0`` in the method ``checkInstrumentFOV``.
+- Sensor noise models were not being initialized correctly in sensor models such as
+  :ref:`magnetometer` and :ref:`simpleVoltEstimator` modules. This is now fixed in the current release.
+- Propagation matrices were private in the :ref:`simpleVoltEstimator` and :ref:`starTracker` modules.
+  This is now fixed in the current release by the addition of public methods to set and get the propagation matrices.
+
+
+Version 2.5.0
+-------------
+- pip-based installation in editable mode using ``pip install -e .`` is not currently supported.
+  Developers and users alike should continue to use ``python conanfile.py`` installation.
+- If the :ref:`simIncludeRW` python tool was provided a specific ``Js`` value, it was being falsely converted
+  before being assigned.  This is now corrected.
+- If ``supportData/EphemerisData/de430.bsp`` is not present the current build system will download the file
+  from JPL server.  However, if the download is interrupted, then the next build will find the file and
+  not attempt to re-download it.  This is now fixed in the current version where the file is only
+  stored in the ``supportData`` folder if the download was complete.
+- :ref:`vizInterface` was not able to save to a binary data file.
+  This is now fixed in the current release.
+- :ref:`vizInterface` was not saving the Vizard settings to the binary file.  Fixed now.
+- Installing Basilisk 2.4.0 while ``packaging<22`` is installed can lead to an incompatibility and raise a
+  "TypeError: ``canonicalize_version()`` got an unexpected keyword argument ``strip_trailing_zero``" error.
+  Newer versions of Basilisk now upgrade ``packaging>=22`` to solve this issue.
+- :ref:`simIncludeRW` didn't allow ``fCoulomb``, ``fStatic`` and ``cViscous`` to be
+  specified even if a prebuilt RW data set is used. This is corrected in the current release.
+
+Version 2.4.0
+-------------
 - The fuel tank models have become classes and python simulation code using tank modules need to be
   updated.  See :ref:`fueltank` or :ref:`scenarioFuelSlosh` for further documentation.
+- The CI test builds starting failing running the `gtest` unit test suite with the error
+  ``CMake Error: Unknown argument: --gtest_output``.  The current release fixes this issue.
+- There was an issue with the :ref:`thrusterStateEffector` such that its mass depletion rate was
+  hard-coded to 100% for all firings. This is corrected in the current release.
+- pip-based installation in editable mode using `pip install -e .` is not currently supported.
+  Developers and users alike should continue to use `python conanfile.py` installation.
+- The CI test builds starting failing running the `gtest` unit test suite with the error
+  ``CMake Error: Unknown argument: --gtest_output``.  The current release fixes this issue.
+- If the :ref:`simIncludeRW` python tool was provided a specific ``Js`` value, it was being falsely converted
+  before being assigned.
 
 
 Version 2.3.0
@@ -911,7 +1021,7 @@ solution to this issue.
 
    <li>
 
-The ``numpy`` python package can’t be the current version 1.16.x as this
+The ``numpy`` python package can't be the current version 1.16.x as this
 causes some incompatibilities and massive amounts of depreciated
 warnings. These warnings are not related to BSK python code, but other
 support code. Thus, for now be sure to install version 1.15.14 of
@@ -962,7 +1072,7 @@ free to install the latest version of pytest.
 
    <li>
 
-As we are now using the conan package management system, you can’t
+As we are now using the conan package management system, you can't
 double the the Cmake GUI application. Instead, you must either launch
 the Cmake GUI application from the command line, or run CMake from the
 command line directly. See the platform specific Basilisk installation
@@ -976,7 +1086,7 @@ instructions.
 
    <li>
 
-The ``numpy`` python package can’t be the current version 1.16.x as this
+The ``numpy`` python package can't be the current version 1.16.x as this
 causes some incompatibilities and massive amounts of depreciated
 warnings. These warnings are not related to BSK python code, but other
 support code. Thus, for now be sure to install version 1.15.14 of

@@ -1,4 +1,3 @@
-cmake_minimum_required(VERSION 3.14)
 
 if(BUILD_VIZINTERFACE)
     find_package(protobuf CONFIG REQUIRED)
@@ -8,10 +7,7 @@ if(BUILD_VIZINTERFACE)
          NAMES protoc
          PATHS ENV
          PATH NO_DEFAULT_PATH
-     )
-
-     add_custom_target(GeneratedProtobufMessages
-        DEPENDS "${PROTOC_EXE}"
+         REQUIRED
      )
 
      file(GLOB PROTO_DEFS "${CMAKE_CURRENT_SOURCE_DIR}/*.proto")
@@ -19,11 +15,13 @@ if(BUILD_VIZINTERFACE)
      foreach(PROTO_DEF ${PROTO_DEFS})
          get_filename_component(PROTO_TARGET "${PROTO_DEF}" NAME_WE)
 
-         add_custom_command(TARGET GeneratedProtobufMessages PRE_BUILD
+         add_custom_command(
+             OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/${PROTO_TARGET}.pb.cc" "${CMAKE_CURRENT_SOURCE_DIR}/${PROTO_TARGET}.pb.h" "${CMAKE_CURRENT_SOURCE_DIR}/${PROTO_TARGET}_pb2.py"
              COMMAND "${PROTOC_EXE}" "--proto_path=${CMAKE_CURRENT_SOURCE_DIR}" "--cpp_out=${CMAKE_CURRENT_SOURCE_DIR}" "${PROTO_DEF}"
-             BYPRODUCTS "${CMAKE_CURRENT_SOURCE_DIR}/${PROTO_TARGET}.pb.cc" "${CMAKE_CURRENT_SOURCE_DIR}/${PROTO_TARGET}.pb.h"
+             COMMAND "${PROTOC_EXE}" "--proto_path=${CMAKE_CURRENT_SOURCE_DIR}" "--python_out=${CMAKE_CURRENT_SOURCE_DIR}" "${PROTO_DEF}"
+             DEPENDS "${PROTO_DEF}"
              WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-             COMMENT "Generating protobuf (C++): ${PROTO_TARGET}"
+             COMMENT "Generating protobuf (C++, Python): ${PROTO_TARGET}"
          )
 
          message(STATUS "Defining protobuf interface library target: ${PROTO_TARGET}")
@@ -31,7 +29,7 @@ if(BUILD_VIZINTERFACE)
          add_library(${PROTO_TARGET}
              "${CMAKE_CURRENT_SOURCE_DIR}/${PROTO_TARGET}.pb.cc"
          )
-         add_dependencies(${PROTO_TARGET} GeneratedProtobufMessages)
+
          target_include_directories(${PROTO_TARGET}
              PUBLIC
                  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
@@ -41,11 +39,6 @@ if(BUILD_VIZINTERFACE)
          target_link_libraries(${PROTO_TARGET}
              PUBLIC
                  protobuf::protobuf
-         )
-
-         set_target_properties(${PROTO_TARGET} PROPERTIES
-             CXX_STANDARD 11
-             POSITION_INDEPENDENT_CODE ON
          )
 
          set_target_properties(${PROTO_TARGET} PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/Basilisk")

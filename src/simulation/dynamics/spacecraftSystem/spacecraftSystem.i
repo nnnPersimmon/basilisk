@@ -31,9 +31,11 @@ from Basilisk.simulation.gravityEffector import GravBodyVector
 %include "swig_eigen.i"
 %include "swig_conly_data.i"
 
+%include "swig_deprecated.i"
+%deprecated_function(SpacecraftSystem::SpacecraftSystem, "2026/05/25", "Move to regular spacecraft class and connect with constraintDynamicEffector.")
+
 %include "sys_model.i"
-%include "../_GeneralModuleFiles/stateData.h"
-%include "../_GeneralModuleFiles/dynParamManager.h"
+%include "simulation/dynamics/_GeneralModuleFiles/dynParamManager.i"
 %include "../_GeneralModuleFiles/dynamicObject.h"
 %import  "simulation/dynamics/gravityEffector/gravityEffector.i"
 %include "../_GeneralModuleFiles/stateEffector.h"

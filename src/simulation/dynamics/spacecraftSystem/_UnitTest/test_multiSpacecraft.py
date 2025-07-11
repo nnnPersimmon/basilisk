@@ -33,6 +33,7 @@ from Basilisk.utilities import macros
 from Basilisk.utilities import pythonVariableLogger
 from Basilisk.simulation import gravityEffector
 from Basilisk.simulation import hingedRigidBodyStateEffector
+from Basilisk.utilities import deprecated
 
 
 def addTimeColumn(time, data):
@@ -50,7 +51,13 @@ def addTimeColumn(time, data):
                                       ])
 def test_spacecraftSystemAllTest(show_plots, function):
     """Module Unit Test"""
-    [testResults, testMessage] = eval(function + '(show_plots)')
+    func = globals().get(function)
+
+    if func is None:
+        raise ValueError(f"Function '{function}' not found in global scope")
+
+    [testResults, testMessage] = func(show_plots)
+
     assert testResults < 1, testMessage
 
 
@@ -60,6 +67,7 @@ def SCConnected(show_plots):
     # the mrp_steering_tracking() function will not be shown unless the
     # --fulltrace command line option is specified.
     __tracebackhide__ = True
+    deprecated.filterwarnings("ignore", "SpacecraftSystem.SpacecraftSystem")
 
     testFailCount = 0  # zero unit test result counter
     testMessages = []  # create empty list to store test log messages
@@ -337,6 +345,7 @@ def SCConnectedAndUnconnected(show_plots):
     # the mrp_steering_tracking() function will not be shown unless the
     # --fulltrace command line option is specified.
     __tracebackhide__ = True
+    deprecated.filterwarnings("ignore", "SpacecraftSystem.SpacecraftSystem")
 
     testFailCount = 0  # zero unit test result counter
     testMessages = []  # create empty list to store test log messages

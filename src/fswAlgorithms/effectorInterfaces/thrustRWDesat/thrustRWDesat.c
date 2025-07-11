@@ -25,7 +25,7 @@
 /*! This method initializes the configData for the thruster-based RW desat module.
  It checks to ensure that the inputs are sane and then creates the
  output message
- @return void
+
  @param configData The configuration data associated with the thruster desat
  @param moduleID The module ID associated with configData
  */
@@ -84,10 +84,13 @@ void Reset_thrustRWDesat(thrustRWDesatConfig *configData, uint64_t callTime, int
     v3SetZero(configData->accumulatedImp);
     configData->totalAccumFiring = 0.0;
 
+    // Add zero output message
+    THRArrayOnTimeCmdMsgPayload thrOnTimeOut = THRArrayOnTimeCmdMsg_C_zeroMsgPayload();
+    THRArrayOnTimeCmdMsg_C_write(&thrOnTimeOut, &configData->thrCmdOutMsg, moduleID, callTime);
 }
 
 /*! This method takes in the current oberved reaction wheel angular velocities.
- @return void
+
  @param configData The configuration data associated with the RW desat logic
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The ID associated with the configData

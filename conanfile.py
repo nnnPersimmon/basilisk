@@ -1,15 +1,28 @@
 import argparse
 import os
 import platform
+import json
 import shutil
 import subprocess
 import sys
 from datetime import datetime
+from typing import Optional, Callable
 
-import pkg_resources
+import importlib.metadata
+from packaging.requirements import Requirement
+
+from conan import ConanFile
+from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout, CMakeDeps
+from conan.tools.microsoft import is_msvc
+from conan.tools.files import copy
+from pathlib import Path
 
 sys.path.insert(1, './src/utilities/')
 import makeDraftModule
+
+# XXX: this statement is needed to enable Windows to print ANSI codes in the Terminal
+# see https://stackoverflow.com/questions/287871/how-to-print-colored-text-in-terminal-in-python/3332860#3332860
+os.system("")
 
 # define the print color codes
 statusColor = '\033[92m'
@@ -17,116 +30,112 @@ failColor = '\033[91m'
 warningColor = '\033[93m'
 endColor = '\033[0m'
 
-try:
-    from conans import __version__ as conan_version
-    if int(conan_version[0]) >= 2:
-        print(failColor + "conan version " + conan_version + " is not compatible with Basilisk.")
-        print("use version 1.40.1 to 1.xx.0 to work with the conan repo changes." + endColor)
-        exit(0)
-    from conans.tools import Version
-    # check conan version 1.xx
-    if conan_version < Version("1.40.1"):
-        print(failColor + "conan version " + conan_version + " is not compatible with Basilisk.")
-        print("use version 1.40.1+ to work with the conan repo changes from 2021." + endColor)
-        exit(0)
-    from conans import ConanFile, CMake, tools
-except ModuleNotFoundError:
-    print("Please make sure you install python conan (version 1.xx, not 2.xx) package\nRun command `pip install conan` "
-          "for Windows\nRun command `pip3 install conan` for Linux/MacOS")
-    sys.exit(1)
 
-# define BSK module option list (option name and default value)
+# # define BSK module option list (option name and default value)
 bskModuleOptionsBool = {
-    "opNav": False,
-    "vizInterface": True,
-    "buildProject": True
+    "opNav": [[True, False], False],
+    "vizInterface": [[True, False], True],
+    "mujoco": [[True, False], False],
+    "buildProject": [[True, False], True],
+    "pyPkgCanary": [[True, False], False],
+
+    # XXX: Set managePipEnvironment to True to keep the old behaviour of
+    # managing the `pip` environment directly (upgrading, installing Python
+    # packages, etc.). This behaviour is deprecated using the new pip-based
+    # installation, and should only be required for users who are still calling
+    # this file with `python conanfile.py ...`.
+    # TODO: Remove all managePipEnvironment behaviour!
+    "managePipEnvironment": [[True, False], True],
 }
 bskModuleOptionsString = {
-    "autoKey": "",
-    "pathToExternalModules": ""
+    "autoKey": [["", "u", "s","c"], ""],  # TODO: Remove, used only for managePipEnvironment.
+    "pathToExternalModules": [["ANY"], ""],
+    "pyLimitedAPI": [["ANY"], ""],
 }
 bskModuleOptionsFlag = {
-    "clean": False,
-    "allOptPkg": False
+    "clean": [[True, False], False],
+    "allOptPkg": [[True, False], False]  # TODO: Remove, used only for managePipEnvironment.
 }
 
-# this statement is needed to enable Windows to print ANSI codes in the Terminal
-# see https://stackoverflow.com/questions/287871/how-to-print-colored-text-in-terminal-in-python/3332860#3332860
-os.system("")
 
 def is_running_virtual_env():
     return sys.prefix != sys.base_prefix
 
+required_conan_version = ">=2.0.5"
+
 class BasiliskConan(ConanFile):
     name = "Basilisk"
-    homepage = "http://hanspeterschaub.info/basilisk"
+    homepage = "https://avslab.github.io/basilisk/"
     f = open('docs/source/bskVersion.txt', 'r')
     version = f.read()
     f.close()
-    generators = "cmake_find_package_multi"
-    requires = "eigen/3.4.0"
+    # generators = "CMakeDeps"
     settings = "os", "compiler", "build_type", "arch"
     build_policy = "missing"
     license = "ISC"
 
-    options = {"generator": "ANY"}
-    default_options = {"generator": ""}
+    # Requirements
+    requires = [
+        "eigen/3.4.0",
+        "cspice/0067",
+    ]
+    package_type = "shared-library"
+    options = {
+        # define BSK module option list
+        "sourceFolder": ["ANY"],
+        "buildFolder": ["ANY"],
+        "generator": ["ANY"],
+    }
+    default_options = {
+        "sourceFolder": "src",
+        "buildFolder": "dist3",
+        "generator": "",
+    }
 
-    # ensure latest pip is installed
-    if is_running_virtual_env() or platform.system() == "Windows":
-        cmakeCmdString = 'python -m pip install --upgrade pip'
-    else:
-        cmakeCmdString = 'python3 -m pip install --upgrade pip'
-    print(statusColor + "Updating pip:" + endColor)
-    print(cmakeCmdString)
-    os.system(cmakeCmdString)
+    # Sources are located in the same place as this recipe, copy them to the recipe
+    exports_sources = "setup.py", "CMakeLists.txt", "src/*", "include/*"
 
     for opt, value in bskModuleOptionsBool.items():
-        options.update({opt: [True, False]})
-        default_options.update({opt: value})
+        options.update({opt: value[0]})
+        default_options.update({opt: value[1]})
     for opt, value in bskModuleOptionsString.items():
-        options.update({opt: "ANY"})
-        default_options.update({opt: value})
+        options.update({opt: value[0]})
+        default_options.update({opt: value[1]})
     for opt, value in bskModuleOptionsFlag.items():
-        options.update({opt: [True, False]})
-        default_options.update({opt: value})
-
-    # set cmake generator default
-    generator = None
-
-    # make sure conan is configured to use the libstdc++11 by default
-    if platform.system() != "Darwin":
-        try:
-            subprocess.check_output(["conan", "profile", "new", "default", "--detect"], stdout=subprocess.DEVNULL)
-        except:
-            pass
-
-        if platform.system() == "Linux":
-            try:
-                subprocess.check_output(["conan", "profile", "update",
-                                         "settings.compiler.libcxx=libstdc++11", "default"])
-                print("\nConfiguring: " + statusColor + "use libstdc++11 by default" + endColor)
-
-            except:
-                pass
-
-    print(statusColor + "Checking conan configuration:" + endColor + " Done")
-
-    try:
-        # enable this flag for access revised conan modules.
-        subprocess.check_output(["conan", "config", "set", "general.revisions_enabled=1"])
-    except:
-        pass
+        options.update({opt: value[0]})
+        default_options.update({opt: value[1]})
 
     def system_requirements(self):
-        reqFile = open('requirements.txt', 'r')
+        if not self.options.get_safe("managePipEnvironment"):
+            return  # Don't need to manage any pip requirements
+
+        # TODO: Remove everything here, which only runs if we have set
+        # managePipEnvironment (i.e. conanfile.py-based build).
+
+        # ensure latest pip is installed
+        cmakeCmdString = f'{sys.executable} -m pip install --upgrade pip'
+        print(statusColor + "Updating pip:" + endColor)
+        print(cmakeCmdString)
+        os.system(cmakeCmdString)
+
+        # TODO: Remove this: requirements and optional requirements are
+        # installed automatically by add_basilisk_to_sys_path(). Only build
+        # system requirements need to be installed here.
+        reqPath = '.github/workflows/' if self.options.get_safe("pyPkgCanary") else ''
+
+        reqFile = open(f'{reqPath}requirements.txt', 'r')
         required = reqFile.read().replace("`", "").split('\n')
         reqFile.close()
         pkgList = [x.lower() for x in required]
 
+        reqFile = open(f'{reqPath}requirements_dev.txt', 'r')
+        required = reqFile.read().replace("`", "").split('\n')
+        reqFile.close()
+        pkgList += [x.lower() for x in required]
+
         checkStr = "Required"
-        if self.options.allOptPkg:
-            optFile = open('requirements_optional.txt', 'r')
+        if self.options.get_safe("allOptPkg"):
+            optFile = open(f'{reqPath}requirements_doc.txt', 'r')
             optionalPkgs = optFile.read().replace("`", "").split('\n')
             optFile.close()
             optionalPkgs = [x.lower() for x in optionalPkgs]
@@ -134,158 +143,189 @@ class BasiliskConan(ConanFile):
             checkStr += " and All Optional"
 
         print("\nChecking " + checkStr + " Python packages:")
+        missing_packages = []
         for elem in pkgList:
+            if not elem:  # Skip empty or falsy elements
+                continue
+
             try:
-                pkg_resources.require(elem)
-                print("Found: " + statusColor + elem + endColor)
-            except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict):
-                installCmd = [sys.executable, "-m", "pip", "install"]
+                # Parse the requirement (e.g., "numpy<2")
+                req = Requirement(elem)
+                # Get the installed version of the package
+                installed_version = importlib.metadata.version(req.name)
 
-                if not is_running_virtual_env():
-                    if self.options.autoKey:
-                        choice = self.options.autoKey
-                    else:
-                        choice = input(warningColor + "Required python package " + elem + " is missing" + endColor +
-                                       "\nInstall for user (u), system (s) or cancel(c)? ")
-                    if choice == 'c':
-                        print(warningColor + "Skipping installing " + elem + endColor)
-                        continue
-                    elif choice == 'u':
-                        installCmd.append("--user")
-                installCmd.append(elem)
-                try:
-                    subprocess.check_call(installCmd)
-                except subprocess.CalledProcessError:
-                    print(failColor + "Was not able to install " + elem + endColor)
+                # Check if the installed version satisfies the requirement
+                if req.specifier.contains(installed_version):
+                    print("Found: " + statusColor + elem + endColor)
+                else:
+                    raise Exception(
+                        f"Version conflict for {req.name}: {installed_version} does not satisfy {req.specifier}")
+            except importlib.metadata.PackageNotFoundError:
+                missing_packages.append(elem)
+            except Exception as e:
+                print(f"Error: {e}")
+                missing_packages.append(elem)
 
-        # check the version of Python
-        print("\nChecking Python version:")
-        if not (sys.version_info.major == 3 and sys.version_info.minor >= 8):
-            print(warningColor + "Python 3.8 or newer should be used with Basilisk." + endColor)
-            print("You are using Python {}.{}.{}".format(sys.version_info.major,
-                                                         sys.version_info.minor, sys.version_info.micro))
-        else:
-            print(statusColor + "Python {}.{}.{}".format(sys.version_info.major,
-                                                         sys.version_info.minor, sys.version_info.micro)
-                  + " is acceptable for Basilisk" + endColor)
+        for elem in missing_packages:
+            installCmd = [sys.executable, "-m", "pip", "install"]
 
-        print("\n")
+            if not is_running_virtual_env():
+                if self.options.get_safe("autoKey"):
+                    choice = self.options.get_safe("autoKey")
+                else:
+                    choice = input(warningColor + f"Required python package " + elem + " is missing" + endColor +
+                                    "\nInstall for user (u), system (s) or cancel(c)? ")
+                if choice == 'c':
+                    print(warningColor + "Skipping installing " + elem + endColor)
+                    continue
+                elif choice == 'u':
+                    installCmd.append("--user")
+            installCmd.append(elem)
+            try:
+                subprocess.check_call(installCmd)
+                print(f"Installed: {statusColor}{elem}{endColor}")
+            except subprocess.CalledProcessError:
+                print(failColor + f"Was not able to install " + elem + endColor)
+
+    def build_requirements(self):
+        # Protobuf is also required as a tool (in order for CMake to find the
+        # Conan-installed `protoc` compiler).
+        # See https://github.com/conan-io/conan-center-index/issues/21737
+        # and https://github.com/conan-io/conan-center-index/pull/22244#issuecomment-1910770387
+        if self.options.get_safe("vizInterface") or self.options.get_safe("opNav"):
+            self.tool_requires("protobuf/<host_version>")
 
     def requirements(self):
-        if self.options.opNav:
-            self.requires.add("pcre/8.45")
-            self.requires.add("opencv/4.5.5")
-            self.options['opencv'].with_ffmpeg = False  # video frame encoding lib
-            self.options['opencv'].with_ade = False  # graph manipulations framework
-            self.options['opencv'].with_tiff = False  # encode/decode image in TIFF format
-            self.options['opencv'].with_openexr = False  # encode/decode image in EXR format
-            self.options['opencv'].with_webp = False  # encode/decode image in WEBP format
-            self.options['opencv'].with_quirc = False  # QR code lib
-            self.requires.add("zlib/1.2.13")
-            self.requires.add("xz_utils/5.4.0")
+        if self.options.get_safe("opNav"):
+            self.requires("opencv/4.5.5")
 
-        if self.options.vizInterface or self.options.opNav:
-            self.requires.add("protobuf/3.17.1")
-            self.options['zeromq'].encryption = False  # Basilisk does not use data streaming encryption.
-            self.requires.add("cppzmq/4.5.0")
+        if self.options.get_safe("vizInterface") or self.options.get_safe("opNav"):
+            self.requires("protobuf/3.21.12") # For compatibility with openCV
+            self.requires("cppzmq/4.5.0")
+
+        if self.options.get_safe("mujoco"):
+            self.requires(f"mujoco/{get_mujoco_version()}")
 
     def configure(self):
-        if self.options.clean:
+        if self.options.get_safe("clean"):
             # clean the distribution folder to start fresh
-            self.options.clean = False
             root = os.path.abspath(os.path.curdir)
             distPath = os.path.join(root, "dist3")
             if os.path.exists(distPath):
                 shutil.rmtree(distPath, ignore_errors=True)
-        if self.settings.build_type == "Debug":
+        if self.settings.get_safe("build_type") == "Debug":
             print(warningColor + "Build type is set to Debug. Performance will be significantly lower." + endColor)
 
         # Install additional opencv methods
-        if self.options.opNav:
+        if self.options.get_safe("opNav"):
             self.options['opencv'].contrib = True
-            # Raise an issue to conan-center to fix this bug. Using workaround to disable freetype for windows
-            # Issue link: https://github.com/conan-community/community/issues/341
-            #TODO Remove this once they fix this issue.
-            if self.settings.os == "Windows":
-                self.options['opencv'].contrib_freetype = False
+            self.options['opencv'].with_ffmpeg = False  # video frame encoding lib
+            self.options['opencv'].gapi = False  # graph manipulations framework
+            self.options['opencv'].with_tiff = False  # generate image in TIFF format
+            self.options['opencv'].with_openexr = False  # generate image in EXR format
+            self.options['opencv'].with_quirc = False  # QR code lib
+            self.options['opencv'].with_webp = False  # raster graphics file format for web
 
-        if self.options.generator == "":
-            # Select default generator supplied to cmake based on os
-            if self.settings.os == "Macos":
-                self.generator = "Xcode"
-            elif self.settings.os == "Windows":
-                self.generator = "Visual Studio 16 2019"
-                self.options["*"].shared = True
-            else:
-                print("Creating a make file for project. ")
-                print("Specify your own using the -o generator='Name' flag during conan install")
-        else:
-            self.generator = str(self.options.generator)
-            if self.settings.os == "Windows":
-                self.options["*"].shared = True
-        print("cmake generator set to: " + statusColor + str(self.generator) + endColor)
+        # Other dependency options
+        if self.options.get_safe("vizInterface") or self.options.get_safe("opNav"):
+            self.options['zeromq'].encryption = False # Basilisk does not use data streaming encryption.
+
 
     def package_id(self):
-        if self.settings.compiler == "Visual Studio":
+        if self.info.settings.compiler == "Visual Studio":
             if "MD" in self.settings.compiler.runtime:
                 self.info.settings.compiler.runtime = "MD/MDd"
             else:
                 self.info.settings.compiler.runtime = "MT/MTd"
 
-    def imports(self):
+    def layout(self):
+        cmake_layout(self,
+                     src_folder=str(self.options.get_safe("sourceFolder")),
+                     build_folder=str(self.options.get_safe("buildFolder"))
+                     )
+
+        # XXX: Override the build folder again to keep it consistent between
+        # multi- (e.g. Visual Studio) and single-config (e.g. Make) generators.
+        # Otherwise, it's too difficult to extract the value of this into the
+        # setup.py file programmatically.
+        self.folders.build = str(self.options.get_safe("buildFolder"))
+
+    def generate(self):
         if self.settings.os == "Windows":
-            self.keep_imports = True
-            self.copy("*.dll", "../Basilisk", "bin")
+            for dep in self.dependencies.values():
+                for libdir in dep.cpp_info.bindirs:
+                    copy(self, "*.dll", libdir, "../Basilisk")
 
-    def generateMessageModules(self, originalWorkingDirectory):
-        cmdString = [sys.executable, "GenCMessages.py"]
-        if self.options.pathToExternalModules:
-            cmdString.extend(["--pathToExternalModules", str(self.options.pathToExternalModules)])
-        subprocess.check_call(cmdString)
-        os.chdir(originalWorkingDirectory)
-        print("Done")
-
-    def build(self):
-        # auto-generate C message definition files
-        print(statusColor + "Auto-generating message definitions:" + endColor, end=" ")
-        bskPath = os.getcwd()
-        os.chdir(os.path.join(bskPath, "src/architecture/messaging/msgAutoSource"))
-        self.generateMessageModules(bskPath)
-
-        if self.options.pathToExternalModules:
+        if self.options.get_safe("pathToExternalModules"):
             print(statusColor + "Including External Folder: " + endColor + str(self.options.pathToExternalModules))
 
-        root = os.path.abspath(os.path.curdir)
+        if self.settings.build_type == "Debug":
+            self.output.warning("Build type is set to Debug. Performance will be significantly slower.")
 
-        self.folders.source = os.path.join(root, "src")
-        self.folders.build = os.path.join(root, "dist3")
+        # -------------------------------------------------------------
+        # Run the CMake configuration generators.
+        # -------------------------------------------------------------
+        deps = CMakeDeps(self)
+        deps.set_property("eigen", "cmake_target_name", "Eigen3::Eigen3")   # XXX: Override, original is "Eigen3::Eigen"
+        deps.set_property("cppzmq", "cmake_target_name", "cppzmq::cppzmq")  # XXX: Override, original is "cppzmq"
+        deps.generate()
 
-        cmake = CMake(self, set_cmake_flags=True, generator=self.generator)
-        if self.settings.compiler == "Visual Studio":
-            cmake.definitions["CONAN_LINK_RUNTIME_MULTI"] = cmake.definitions["CONAN_LINK_RUNTIME"]
-            cmake.definitions["CONAN_LINK_RUNTIME"] = False
-        cmake.definitions["BUILD_OPNAV"] = self.options.opNav
-        cmake.definitions["BUILD_VIZINTERFACE"] = self.options.vizInterface
-        cmake.definitions["EXTERNAL_MODULES_PATH"] = self.options.pathToExternalModules
-        cmake.definitions["PYTHON_VERSION"] = f"{sys.version_info.major}.{sys.version_info.minor}"
-        cmake.parallel = True
+        tc = CMakeToolchain(self)
+        generatorString = str(self.options.get_safe("generator"))
+        if generatorString == "":
+            # Select default generator supplied to cmake based on os
+            if self.settings.os == "Macos" and not self.options.get_safe("buildProject"):
+                generatorString = "Xcode"
+                tc.generator = generatorString
+            elif self.settings.os == "Windows":
+                generatorString = "Visual Studio 17 2022"
+                tc.generator = generatorString
+                self.options["*"].shared = True
+            else:
+                print("Creating a make file for project. ")
+                print("Specify your own using the -o generator='Name' flag during conan install")
+        else:
+            tc.generator = generatorString
+            if self.settings.os == "Windows":
+                self.options["*"].shared = True
+        print("cmake generator set to: " + statusColor + generatorString + endColor)
+
+        tc.cache_variables["BUILD_OPNAV"] = bool(self.options.get_safe("opNav"))
+        tc.cache_variables["BUILD_VIZINTERFACE"] = bool(self.options.get_safe("vizInterface"))
+        tc.cache_variables["BUILD_MUJOCO"] = bool(self.options.get_safe("mujoco"))
+        if self.options.get_safe("pathToExternalModules"):
+            tc.cache_variables["EXTERNAL_MODULES_PATH"] = Path(str(self.options.pathToExternalModules)).resolve().as_posix()
+        tc.cache_variables["PYTHON_VERSION"] = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        # Set the build rpath, since we don't install the targets, so that the
+        # shared libraries can find each other using relative paths.
+        tc.cache_variables["CMAKE_BUILD_RPATH_USE_ORIGIN"] = True
+        # Set the minimum buildable MacOS version.
+        # tc.cache_variables["CMAKE_OSX_DEPLOYMENT_TARGET"] = "10.13"
+        tc.parallel = True
+
+        # Generate!
+        tc.generate()
+
+    def build(self):
+
+        cmake = CMake(self)
         print(statusColor + "Configuring cmake..." + endColor)
         cmake.configure()
-        self.add_basilisk_to_sys_path()
-        if self.options.buildProject:
+
+        if self.options.get_safe("managePipEnvironment"):
+            # TODO: it's only needed when conanfile.py is handling pip installations.
+            self.add_basilisk_to_sys_path()
+
+        if self.options.get_safe("buildProject"):
             print(statusColor + "\nCompiling Basilisk..." + endColor)
             start = datetime.now()
-            if self.generator == "Xcode":
-                # Xcode multi-threaded needs specialized arguments
-                cmake.build(['--', '-jobs', str(tools.cpu_count()), '-parallelizeTargets'])
-            else:
-                cmake.build()
+            cmake.build()
             print("Total Build Time: " + str(datetime.now() - start))
             print(f"{statusColor}The Basilisk build is successful and the scripts are ready to run{endColor}")
         else:
             print(f"{statusColor}Finished configuring the Basilisk project.{endColor}")
             if self.settings.os != "Linux":
-                print(f"{statusColor}Please open project file inside dist3 with {self.generator} IDE "
+                print(f"{statusColor}Please open project file inside dist3 with IDE "
                       f"and build the project for {self.settings.build_type}{endColor}")
             else:
                 print(f"{statusColor}Please go to dist3 folder and run command "
@@ -293,9 +333,17 @@ class BasiliskConan(ConanFile):
         return
 
     def add_basilisk_to_sys_path(self):
-        print("Adding Basilisk module to python\n")
-        add_basilisk_module_command = [sys.executable, "-m", "pip", "install", "-e", "."]
-        if not is_running_virtual_env() and self.options.autoKey != 's':
+        print(f"{statusColor}Adding Basilisk module to python{endColor}\n")
+        # NOTE: "--no-build-isolation" is used here only to force pip to use the
+        # packages installed directly by this Conanfile (using the
+        # "managePipEnvironment" option). Otherwise, it is not necessary.
+        add_basilisk_module_command = [sys.executable, "-m", "pip", "install", "--no-build-isolation", "-e", "../"]
+
+        if self.options.get_safe("allOptPkg"):
+            # Install the optional requirements as well
+            add_basilisk_module_command[-1] = ".[optional]"
+
+        if not is_running_virtual_env() and self.options.get_safe("autoKey") != 's':
             add_basilisk_module_command.append("--user")
 
         process = subprocess.Popen(add_basilisk_module_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -305,28 +353,85 @@ class BasiliskConan(ConanFile):
             sys.exit(1)
         else:
             print("This resulted in the stdout: \n%s" % output.decode())
-            print("This resulted in the stderr: \n%s" % err.decode())
+            if err.decode() != "":
+                print("This resulted in the stderr: \n%s" % err.decode())
+
+def get_mujoco_version():
+    with open("./libs/mujoco/version.txt") as f:
+        return f.read().strip()
+
+def is_conan_package_available(ref: str):
+    """
+    Run 'conan list' and return True if package exists in local or remote caches.
+    """
+    try:
+        output = subprocess.check_output(
+            [sys.executable, "-m", "conans.conan", "list", ref, "-c", "-f", "json", "-verror"],
+            stderr=subprocess.STDOUT,
+            universal_newlines=True
+        )
+        parsed = json.loads(output)
+        return any( "error" not in v for v in parsed.values() )
+    except subprocess.CalledProcessError:
+        return False
+
+def conan_create_mujoco(print_fn: Optional[Callable[[str], None]] = print):
+    """
+    If the 'mujoco/VERSION' package is not found in any remote or the local cache,
+    then the mujoco project (as defined in '/libs/mujoco/conanfile.py') is created
+    into the local cache.
+    """
+    ref = f"mujoco/{get_mujoco_version()}"
+    if not is_conan_package_available(ref):
+        if print_fn is not None:
+            print_fn(f"Package {ref} not found locally, creating it...")
+        # Run 'conan create' in the external recipe directory
+        subprocess.run([sys.executable, "-m", "conans.conan", "create", ".", "-s" ,"compiler.cppstd=17"], cwd="./libs/mujoco" )
+    else:
+        if print_fn is not None:
+            print_fn(f"Package {ref} already available, skipping creation.")
 
 if __name__ == "__main__":
+    # make sure conan is configured to use the libstdc++11 by default
+    # XXX: This needs to be run before dispatching to Conan (i.e. outside of the
+    # ConanFile object), because it affects the configuration of the first run.
+    # (Running it here fixes https://github.com/AVSLab/basilisk/issues/525)
+    try:
+        subprocess.check_output([sys.executable, "-m", "conans.conan", "profile", "detect", "--exist-ok"])
+    except:
+        # if profile already exists the above command returns an error.  Just ignore in this
+        # case.  We don't want to overwrite an existing profile file
+        pass
+    print(statusColor + "Checking conan configuration:" + endColor + " Done")
+
     parser = argparse.ArgumentParser(description="Configure the Basilisk framework.")
     # define the optional arguments
     parser.add_argument("--generator", help="cmake generator")
     parser.add_argument("--buildType", help="build type", default="Release", choices=["Release", "Debug"])
+    parser.add_argument("--mujocoReplay",
+                        help="Whether to build the 'replay' utility for visualizing MuJoCo results",
+                        default=False,
+                        type=lambda x: (str(x).lower() == 'true'),
+                        choices=[True, False])
     # parser.add_argument("--clean", help="make a clean distribution folder", action="store_true")
     for opt, value in bskModuleOptionsBool.items():
-        parser.add_argument("--" + opt, help="build modules for " + opt + " behavior", default=value,
+        parser.add_argument("--" + opt, help="build modules for " + opt + " behavior", default=value[1],
                             type=lambda x: (str(x).lower() == 'true'))
     for opt, value in bskModuleOptionsString.items():
-        parser.add_argument("--" + opt, help="using string option for " + opt, default=value)
+        parser.add_argument("--" + opt, help="using string option for " + opt, default=value[1])
     for opt, value in bskModuleOptionsFlag.items():
-        parser.add_argument("--" + opt, help="using flag option for " + opt, action="store_true")
+        if sys.version_info < (3, 9, 0):
+            parser.add_argument("--" + opt, help="using flag option for " + opt, default=value[1], action='store_true')
+        else:
+            parser.add_argument("--" + opt, help="using flag option for " + opt, default=value[1],
+                                action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     # set the build destination folder
-    buildFolderName = 'dist3/conan'
+    # buildFolderName = 'dist3/conan'
 
     # run the auto-module generation script
-    # this ensures that this script is up to date with the latest BSK code base
+    # this ensures that this script is up-to-date with the latest BSK code base
     # and that the associated unit test draft file runs
     print(statusColor + "Auto-Generating Draft Modules... " + endColor, end=" ")
     genMod = makeDraftModule.moduleGenerator()
@@ -338,42 +443,58 @@ if __name__ == "__main__":
     genMod.createCModule()
     print("Done")
 
-    # run conan install
-    conanCmdString = list()
-    if is_running_virtual_env() or platform.system() == "Windows":
-        conanCmdString.append('python -m conans.conan install . --build=missing')
-    else:
-        conanCmdString.append('python3 -m conans.conan install . --build=missing')
-    conanCmdString.append(' -s build_type=' + str(args.buildType))
-    conanCmdString.append(' -if ' + buildFolderName)
+    # If we're missing MuJoCo, create the conan package
+    if args.mujoco:
+        conan_create_mujoco()
+
+    if args.mujocoReplay:
+        print(f"{statusColor}Building 'replay' tool, since '--mujocoReplay true' was used")
+        try:
+            subprocess.check_output([sys.executable, "-m", "conans.conan", "build", ".", "-s" ,"compiler.cppstd=17", "--build=missing"], cwd="./src/utilities/mujocoUtils" )
+        except:
+            raise RuntimeError("Failed to install MuJoCo replay! See error above.")
+
+    # setup conan install command arguments
+    conanInstallList = list()
+    conanInstallList.append(f'{sys.executable} -m conans.conan install . --build=missing')
+    conanInstallList.append(' -s build_type=' + str(args.buildType))
+    conanInstallList.append(' -s compiler.cppstd=17')
+    conanBuildOptionsList = list()  # setup list of conan build arguments
+    conanBuildOptionsList.append(' -s compiler.cppstd=17')
     if args.generator:
-        conanCmdString.append(' -o generator="' + str(args.generator) + '"')
+        conanBuildOptionsList.append(' -o "&:generator=' + str(args.generator) + '"')
     for opt, value in bskModuleOptionsBool.items():
-        conanCmdString.append(' -o ' + opt + '=' + str(vars(args)[opt]))
+        conanBuildOptionsList.append(' -o "&:' + opt + '=' + str(vars(args)[opt]) + '"')
+    conanInstallList.append(''.join(conanBuildOptionsList))  # argument get used in both install and build
+
+    # Most of these options go to both conan install and build commands
     for opt, value in bskModuleOptionsString.items():
         if str(vars(args)[opt]):
             if opt == "pathToExternalModules":
                 externalPath = os.path.abspath(str(vars(args)[opt]).rstrip(os.path.sep))
                 if os.path.exists(externalPath):
-                    conanCmdString.append(' -o ' + opt + '=' + externalPath)
+                    conanInstallList.append(' -o "&:' + opt + '=' + externalPath + '"')
+                    conanBuildOptionsList.append(' -o "&:' + opt + '=' + externalPath + '"')
                 else:
                     print(f"{failColor}Error: path {str(vars(args)[opt])} does not exist{endColor}")
                     sys.exit(1)
             else:
-                conanCmdString.append(' -o ' + opt + '=' + str(vars(args)[opt]))
+                if opt != "autoKey":
+                    conanInstallList.append(' -o "&:' + opt + '=' + str(vars(args)[opt]) + '"')
+                    conanBuildOptionsList.append(' -o "&:' + opt + '=' + str(vars(args)[opt]) + '"')
+
+    # only used for conan install arguments, not build
     for opt, value in bskModuleOptionsFlag.items():
         if vars(args)[opt]:
-            conanCmdString.append(' -o ' + opt + '=True')
-    conanCmdString = ''.join(conanCmdString)
-    print(statusColor + "Running this conan command:" + endColor)
-    print(conanCmdString)
-    completedProcess = subprocess.run(conanCmdString, shell=True, check=True)
+            conanInstallList.append(' -o "&:' + opt + '=True"')
+    conanInstallString = ''.join(conanInstallList)
+
+    print(statusColor + "Running conan install:" + endColor)
+    print(conanInstallString)
+    completedProcess = subprocess.run(conanInstallString, shell=True, check=True)
 
     # run conan build
-    if is_running_virtual_env() or platform.system() == "Windows":
-        cmakeCmdString = 'python -m conans.conan build . -if ' + buildFolderName
-    else:
-        cmakeCmdString = 'python3 -m conans.conan build . -if ' + buildFolderName
-    print(statusColor + "Running cmake:" + endColor)
-    print(cmakeCmdString)
-    completedProcess = subprocess.run(cmakeCmdString, shell=True, check=True)
+    buildCmdString = f'{sys.executable} -m conans.conan build . ' + ''.join(conanBuildOptionsList)
+    print(statusColor + "Running conan build:" + endColor)
+    print(buildCmdString)
+    completedProcess = subprocess.run(buildCmdString, shell=True, check=True)

@@ -30,7 +30,7 @@
 class KeplerianOrbit {
 public:
     KeplerianOrbit();
-    KeplerianOrbit(classicElements oe, const double mu);
+    KeplerianOrbit(ClassicElements oe, const double mu);
     KeplerianOrbit(const KeplerianOrbit &orig);
     ~KeplerianOrbit();
 
@@ -59,7 +59,7 @@ public:
     double p() const;
     double rDot() const;
     double c3() const;
-    classicElements oe();
+    ClassicElements oe();
     void set_mu(const double mu);
     void set_a(double a);
     void set_e(double e);
@@ -67,10 +67,10 @@ public:
     void set_omega(double omega);
     void set_RAAN(double RAAN);
     void set_f(double f);
-    
+
 private:
-    double mu = MU_EARTH;
-    double semi_major_axis = 1E5;
+    double mu = MU_EARTH*pow(10,9); // convert to m^3/s^2
+    double semi_major_axis = 1E5*1000;  // convert to meters
     double eccentricity = 1E-5;
     double inclination{};
     double argument_of_periapsis{};
@@ -96,4 +96,3 @@ private:
     void change_orbit();
     void change_f();
 };
-

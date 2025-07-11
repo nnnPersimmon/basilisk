@@ -99,6 +99,11 @@ ARRAYASLIST(size_t, PyLong_FromSize_t, PyLong_AsSize_t)
 ARRAYASLIST(ssize_t, PyLong_FromSsize_t, PyLong_AsSsize_t)
 ARRAYASLIST(double, PyFloat_FromDouble, PyFloat_AsDouble)
 ARRAYASLIST(float, PyFloat_FromDouble, PyFloat_AsDouble)
+ARRAYASLIST(uint8_t, PyLong_FromUnsignedLong, PyLong_AsUnsignedLong)
+ARRAYASLIST(unsigned char, PyLong_FromUnsignedLong, PyLong_AsUnsignedLong)
+ARRAYASLIST(int8_t, PyLong_FromLong, PyLong_AsLong)
+ARRAYASLIST(signed char, PyLong_FromLong, PyLong_AsLong)
+ARRAYASLIST(bool, PyBool_FromLong, PyObject_IsTrue)
 
 %define ARRAY2ASLIST(type, fromfunc, asfunc)
 
@@ -179,6 +184,11 @@ ARRAY2ASLIST(size_t, PyLong_FromSize_t, PyLong_AsSize_t)
 ARRAY2ASLIST(ssize_t, PyLong_FromSsize_t, PyLong_AsSsize_t)
 ARRAY2ASLIST(double, PyFloat_FromDouble, PyFloat_AsDouble)
 ARRAY2ASLIST(float, PyFloat_FromDouble, PyFloat_AsDouble)
+ARRAY2ASLIST(uint8_t, PyLong_FromUnsignedLong, PyLong_AsUnsignedLong)
+ARRAY2ASLIST(unsigned char, PyLong_FromUnsignedLong, PyLong_AsUnsignedLong)
+ARRAY2ASLIST(int8_t, PyLong_FromLong, PyLong_AsLong)
+ARRAY2ASLIST(signed char, PyLong_FromLong, PyLong_AsLong)
+ARRAY2ASLIST(bool, PyBool_FromLong, PyObject_IsTrue)
 
 %define STRUCTASLIST(type)
 %typemap(in) type [ANY] (type temp[$1_dim0]) {
@@ -240,7 +250,12 @@ ARRAY2ASLIST(float, PyFloat_FromDouble, PyFloat_AsDouble)
 
 def getStructSize(self):
     try:
-        return eval('sizeof_' + repr(self).split(';')[0].split('.')[-1])
+        class_name = repr(self).split(';')[0].split('.')[-1]
+        sizeof_variable_name = 'sizeof_' + class_name
+        size = globals().get(sizeof_variable_name)
+
+        if size is None:
+            raise ValueError(f"{sizeof_variable_name} not found in globals()")
     except (NameError) as e:
         typeString = 'sizeof_' + repr(self).split(';')[0].split('.')[-1]
         raise NameError(e.message + '\nYou tried to get this size macro: ' + typeString +

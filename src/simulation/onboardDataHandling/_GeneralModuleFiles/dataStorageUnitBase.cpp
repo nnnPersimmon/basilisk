@@ -22,7 +22,7 @@
 #include <iostream>
 
 /*! This method initializes some basic parameters for the module.
- @return void
+
  */
 DataStorageUnitBase::DataStorageUnitBase(){
     this->previousTime = 0; //! - previousTime initialized to 0.
@@ -37,7 +37,7 @@ DataStorageUnitBase::DataStorageUnitBase(){
 }
 
 /*! Destructor.
- @return void
+
  */
 DataStorageUnitBase::~DataStorageUnitBase(){
     return;
@@ -47,7 +47,7 @@ DataStorageUnitBase::~DataStorageUnitBase(){
 
 /*! This method is used to reset the module.
  @param CurrentSimNanos
- @return void
+
  */
 void DataStorageUnitBase::Reset(uint64_t CurrentSimNanos)
 {
@@ -62,7 +62,7 @@ void DataStorageUnitBase::Reset(uint64_t CurrentSimNanos)
 
 /*! Adds a simDataNodeMsg name to be iterated over. Called in Python.
  @param tmpNodeMsg
- @return void
+
  */
 void DataStorageUnitBase::addDataNodeToModel(Message<DataNodeUsageMsgPayload> *tmpNodeMsg){
     this->nodeDataUseInMsgs.push_back(tmpNodeMsg->addSubscriber());
@@ -72,7 +72,7 @@ void DataStorageUnitBase::addDataNodeToModel(Message<DataNodeUsageMsgPayload> *t
 
 /*! Reads messages, adds new data to the storage unit, and writes out the storage unit status
  @param CurrentSimNanos The current simulation time in nanoseconds
- @return void
+
  */
 void DataStorageUnitBase::UpdateState(uint64_t CurrentSimNanos)
 {
@@ -92,7 +92,7 @@ void DataStorageUnitBase::UpdateState(uint64_t CurrentSimNanos)
 }
 
 /*! This method is used to read the incoming data supply/outgoing data messages and store them for future use.
- @return void
+
  */
 bool DataStorageUnitBase::readMessages()
 {
@@ -127,7 +127,7 @@ bool DataStorageUnitBase::readMessages()
 
 /*! Loops through the storedData vector and assigns values to output message.
  @param CurrentClock The current time used for time-stamping the message
- @return void
+
  */
 void DataStorageUnitBase::writeMessages(uint64_t CurrentClock){
     //! zero output message to begin with
@@ -153,7 +153,7 @@ void DataStorageUnitBase::writeMessages(uint64_t CurrentClock){
 
 /*! Loops through all of the input messages, integrates the baud rates, and adds the new data to the storedData vector
  @param currentTime
- @return void
+
  */
 void DataStorageUnitBase::integrateDataStatus(double currentTime){
     int index = -1;
@@ -170,9 +170,11 @@ void DataStorageUnitBase::integrateDataStatus(double currentTime){
        if ((this->storedDataSum + round(it->baudRate * this->currentTimestep) <= this->storageCapacity) || (it->baudRate < 0)) {
            //! - if a dataNode exists in storedData vector, integrate and add to current amount
            if (index != -1) {
-               //! Only perform if this operation will not take the sum below zero
-               if ((this->storedData[(size_t) index].dataInstanceSum + it->baudRate * this->currentTimestep) >= 0) {
-                   this->storedData[(size_t) index].dataInstanceSum += round(it->baudRate * this->currentTimestep);
+               //! If this operation takes the sum below zero, set it to zero
+               if ((this->storedData[(size_t)index].dataInstanceSum + it->baudRate * this->currentTimestep) >= 0) {
+                   this->storedData[(size_t)index].dataInstanceSum += round(it->baudRate * this->currentTimestep);
+               } else {
+                   this->storedData[(size_t)index].dataInstanceSum = 0;
                }
                //! - if a dataNode does not exist in storedData, add it to storedData, integrate baud rate, and add amount
            }
@@ -225,7 +227,7 @@ int64_t DataStorageUnitBase::sumAllData(){
 }
 
 /*! Custom Reset() method.  This allows a child class to add additional functionality to the Reset() method
- @return void
+
  */
 void DataStorageUnitBase::customReset(uint64_t CurrentClock)
 {
@@ -233,7 +235,7 @@ void DataStorageUnitBase::customReset(uint64_t CurrentClock)
 }
 
 /*! custom Write method, similar to customSelfInit.
- @return void
+
  */
 void DataStorageUnitBase::customWriteMessages(uint64_t CurrentClock)
 {
@@ -241,7 +243,7 @@ void DataStorageUnitBase::customWriteMessages(uint64_t CurrentClock)
 }
 
 /*! Custom read method, similar to customSelfInit; returns `true' by default.
- @return void
+
  */
 bool DataStorageUnitBase::customReadMessages()
 {
@@ -251,7 +253,7 @@ bool DataStorageUnitBase::customReadMessages()
 /*! Adds a specific amount of data to the storedData vector once
  @param partitionName //Name of the partition to add data to
  @param data          //Amount of data to add to the partition
- @return void
+
  */
 void DataStorageUnitBase::setDataBuffer(std::string partitionName, int64_t data)
 {
@@ -272,7 +274,7 @@ void DataStorageUnitBase::setDataBuffer(std::string partitionName, int64_t data)
             if ((this->storedData[(size_t) index].dataInstanceSum + data) >= 0) {
                 this->storedData[(size_t) index].dataInstanceSum += data;
             }
-            
+
         }
         //! - if a dataNode does not exist in storedData, add it to storedData, and add amount
         else if (strcmp(partitionName.c_str(), "") != 0) {

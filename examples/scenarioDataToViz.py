@@ -172,18 +172,26 @@ def run(show_plots, attType):
         viz = vizSupport.enableUnityVisualization(scSim, simTaskName, scList
                                                   # , saveFile=fileName
                                                   )
+
+        viz.settings.trueTrajectoryLinesOn = 2  # relative to chief spacecraft
         viz.settings.showSpacecraftLabels = 1
         viz.settings.spacecraftShadowBrightness = 0.2
         # load CAD for target spacecraft
         vizSupport.createCustomModel(viz,
-                                     modelPath=os.path.join(path, "dataForExamples", "Aura_27.obj"),
+                                     # Specifying relative model path is useful for sharing scenarios and resources:
+                                     modelPath=os.path.join("..", "dataForExamples", "Aura_27.obj"),
+                                     # Specifying absolute model path is preferable for live-streaming:
+                                     # modelPath=os.path.join(path, "dataForExamples", "Aura_27.obj"),
                                      shader=1,
                                      simBodiesToModify=[scList[1].ModelTag],
                                      rotation=[180. * macros.D2R, 0.0 * macros.D2R, -90. * macros.D2R],
                                      scale=[1, 1, 1])
         # load CAD for servicer spacecraft
         vizSupport.createCustomModel(viz,
-                                     modelPath=os.path.join(path, "dataForExamples", "Loral-1300Com-main.obj"),
+                                     # Specifying relative model path is useful for sharing scenarios and resources:
+                                     modelPath=os.path.join("..", "dataForExamples", "Loral-1300Com-main.obj"),
+                                     # Specifying absolute model path is preferable for live-streaming:
+                                     # modelPath=os.path.join(path, "dataForExamples", "Loral-1300Com-main.obj"),
                                      simBodiesToModify=[scList[0].ModelTag],
                                      rotation=[0. * macros.D2R, -90.0 * macros.D2R, 0. * macros.D2R],
                                      scale=[0.09, 0.09, 0.09])

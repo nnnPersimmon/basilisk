@@ -35,7 +35,7 @@
     This method initializes the configData for this module.  It creates a single output message of type
     :ref:`THRArrayOnTimeCmdMsgPayload`.
  \endverbatim
- @return void
+
  @param configData The configuration data associated with this module
  @param moduleID The ID associated with the configData
  */
@@ -47,7 +47,7 @@ void SelfInit_thrFiringSchmitt(thrFiringSchmittConfig *configData, int64_t modul
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The ID associated with the configData
@@ -78,10 +78,14 @@ void Reset_thrFiringSchmitt(thrFiringSchmittConfig *configData, uint64_t callTim
 		configData->maxThrust[i] = localThrusterData.thrusters[i].maxThrust;
 		configData->lastThrustState[i] = BOOL_FALSE;
 	}
+
+    // Add zero output message
+    THRArrayOnTimeCmdMsgPayload thrOnTimeOut = THRArrayOnTimeCmdMsg_C_zeroMsgPayload();
+    THRArrayOnTimeCmdMsg_C_write(&thrOnTimeOut, &configData->onTimeOutMsg, moduleID, callTime);
 }
 
 /*! This method maps the input thruster command forces into thruster on times using a remainder tracking logic.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The ID associated with the configData
@@ -112,7 +116,7 @@ void Update_thrFiringSchmitt(thrFiringSchmittConfig *configData, uint64_t callTi
 	}
 
     /*! - compute control time period Delta_t */
-	controlPeriod = ((double)(callTime - configData->prevCallTime)) * NANO2SEC;
+	controlPeriod = diffNanoToSec(callTime, configData->prevCallTime);
 	configData->prevCallTime = callTime;
 
     /*! - read the input thruster force message */

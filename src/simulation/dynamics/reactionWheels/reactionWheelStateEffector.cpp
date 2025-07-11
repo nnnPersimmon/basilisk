@@ -19,10 +19,6 @@
 
 
 #include "reactionWheelStateEffector.h"
-#include "architecture/utilities/avsEigenSupport.h"
-#include <cstring>
-#include <iostream>
-#include <cmath>
 
 ReactionWheelStateEffector::ReactionWheelStateEffector()
 {
@@ -44,19 +40,23 @@ ReactionWheelStateEffector::ReactionWheelStateEffector()
 
 ReactionWheelStateEffector::~ReactionWheelStateEffector()
 {
-    for (long unsigned int c=0; c<this->rwOutMsgs.size(); c++) {
-        free(this->rwOutMsgs.at(c));
+    // Clear output messages vector
+    for (unsigned int i = 0; i < this->rwOutMsgs.size(); i++) {
+        if (this->rwOutMsgs[i]) {
+            delete this->rwOutMsgs[i];
+            this->rwOutMsgs[i] = nullptr;
+        }
     }
-    return;
+    rwOutMsgs.clear();
+
+    // Clear reaction wheel data vector - these are owned by SWIG
+    ReactionWheelData.clear();
 }
 
 void ReactionWheelStateEffector::linkInStates(DynParamManager& statesIn)
 {
-	//! - Get access to the hubs sigma, omegaBN_B and velocity needed for dynamic coupling
-	this->hubSigma = statesIn.getStateObject("hubSigma");
-	this->hubOmega = statesIn.getStateObject("hubOmega");
-	this->hubVelocity = statesIn.getStateObject("hubVelocity");
-    this->g_N = statesIn.getPropertyReference("g_N");
+	//! - Get access to the hub states
+    this->g_N = statesIn.getPropertyReference(this->propName_vehicleGravity);
 
 	return;
 }
@@ -192,13 +192,13 @@ void ReactionWheelStateEffector::updateContributions(double integTime, BackSubMa
     gLocal_N = *this->g_N;
 
     //! - Find dcm_BN
-    sigmaBNLocal = (Eigen::Vector3d )this->hubSigma->getState();
+    sigmaBNLocal = (Eigen::Vector3d ) sigma_BN;
     dcm_NB = sigmaBNLocal.toRotationMatrix();
     dcm_BN = dcm_NB.transpose();
     //! - Map gravity to body frame
     g_B = dcm_BN*gLocal_N;
 
-	omegaLoc_BN_B = this->hubOmega->getState();
+	omegaLoc_BN_B = omega_BN_B;
 
     std::vector<RWConfigMsgPayload *>::iterator RWItp;
     RWConfigMsgPayload * RWIt;
@@ -295,9 +295,9 @@ void ReactionWheelStateEffector::computeDerivatives(double integTime, Eigen::Vec
     RWConfigMsgPayload *RWIt;
 
 	//! Grab necessarry values from manager
-	omegaDotBNLoc_B = this->hubOmega->getStateDeriv();
-	rDDotBNLoc_N = this->hubVelocity->getStateDeriv();
-	sigmaBNLocal = (Eigen::Vector3d )this->hubSigma->getState();
+	omegaDotBNLoc_B = omegaDot_BN_B;
+	rDDotBNLoc_N = rDDot_BN_N;
+	sigmaBNLocal = (Eigen::Vector3d ) sigma_BN;
 	dcm_NB = sigmaBNLocal.toRotationMatrix();
 	dcm_BN = dcm_NB.transpose();
 	rDDotBNLoc_B = dcm_BN*rDDotBNLoc_N;
@@ -313,8 +313,28 @@ void ReactionWheelStateEffector::computeDerivatives(double integTime, Eigen::Vec
         }
 		if (RWIt->RWModel == BalancedWheels || RWIt->RWModel == JitterSimple) {
 			OmegasDot(RWi,0) = (RWIt->u_current + RWIt->frictionTorque)/RWIt->Js - RWIt->gsHat_B.transpose()*omegaDotBNLoc_B;
+
+            // Check for numerical instability due to excessive wheel acceleration
+            if (std::abs(OmegasDot(RWi,0)) > this->maxWheelAcceleration) {
+                bskLogger.bskLog(BSK_ERROR, "Excessive reaction wheel acceleration detected (%.2e rad/s^2). This may be caused by using unlimited torque (useMaxTorque=False) with a small spacecraft inertia. Consider using torque limits or increasing spacecraft inertia.", std::abs(OmegasDot(RWi,0)));
+
+                // Safety mechanism: limit the wheel acceleration to prevent numerical instability
+                OmegasDot(RWi,0) = std::copysign(this->maxWheelAcceleration, OmegasDot(RWi,0));
+
+                // Recalculate the effective torque for consistency
+                double effectiveTorque = OmegasDot(RWi,0) * RWIt->Js + RWIt->gsHat_B.transpose()*omegaDotBNLoc_B;
+                RWIt->u_current = effectiveTorque - RWIt->frictionTorque;
+            }
         } else if(RWIt->RWModel == JitterFullyCoupled) {
 			OmegasDot(RWi,0) = RWIt->aOmega.dot(rDDotBNLoc_B) + RWIt->bOmega.dot(omegaDotBNLoc_B) + RWIt->cOmega;
+
+            // Check for numerical instability in fully coupled model as well
+            if (std::abs(OmegasDot(RWi,0)) > this->maxWheelAcceleration) {
+                bskLogger.bskLog(BSK_ERROR, "Excessive reaction wheel acceleration detected (%.2e rad/s^2). This may be caused by using unlimited torque (useMaxTorque=False) with a small spacecraft inertia. Consider using torque limits or increasing spacecraft inertia.", std::abs(OmegasDot(RWi,0)));
+
+                // Safety mechanism: limit the wheel acceleration to prevent numerical instability
+                OmegasDot(RWi,0) = std::copysign(this->maxWheelAcceleration, OmegasDot(RWi,0));
+            }
 		}
 		RWi++;
 	}
@@ -331,7 +351,7 @@ void ReactionWheelStateEffector::updateEnergyMomContributions(double integTime, 
 	Eigen::MRPd sigmaBNLocal;
 	Eigen::Matrix3d dcm_BN;                        /*! direction cosine matrix from N to B */
 	Eigen::Matrix3d dcm_NB;                        /*! direction cosine matrix from B to N */
-	Eigen::Vector3d omegaLoc_BN_B = hubOmega->getState();
+	Eigen::Vector3d omegaLoc_BN_B = omega_BN_B;
 
     //! - Compute energy and momentum contribution of each wheel
     rotAngMomPntCContr_B.setZero();
@@ -356,7 +376,7 @@ void ReactionWheelStateEffector::updateEnergyMomContributions(double integTime, 
     return;
 }
 
-/*! add a RW data object to the reactionWheelStateEffector @return void
+/*! add a RW data object to the reactionWheelStateEffector
  */
 void ReactionWheelStateEffector::addReactionWheel(RWConfigMsgPayload *NewRW)
 {
@@ -371,7 +391,7 @@ void ReactionWheelStateEffector::addReactionWheel(RWConfigMsgPayload *NewRW)
 
 
 /*! Reset the module to origina configuration values.
- @return void
+
  */
 void ReactionWheelStateEffector::Reset(uint64_t CurrenSimNanos)
 {
@@ -407,7 +427,7 @@ void ReactionWheelStateEffector::Reset(uint64_t CurrenSimNanos)
 /*! This method is here to write the output message structure into the specified
  message.
  @param CurrentClock The current time used for time-stamping the message
- @return void
+
  */
 void ReactionWheelStateEffector::WriteOutputMessages(uint64_t CurrentClock)
 {
@@ -451,7 +471,7 @@ void ReactionWheelStateEffector::WriteOutputMessages(uint64_t CurrentClock)
 /*! This method is here to write the output message structure into the specified
  message.
  @param integTimeNanos The current time used for time-stamping the message
- @return void
+
  */
 void ReactionWheelStateEffector::writeOutputStateMessages(uint64_t integTimeNanos)
 {
@@ -474,7 +494,7 @@ void ReactionWheelStateEffector::writeOutputStateMessages(uint64_t integTimeNano
 
 /*! This method is used to read the incoming command message and set the
  associated command structure for operating the RWs.
- @return void
+
  */
 void ReactionWheelStateEffector::ReadInputs()
 {
@@ -499,7 +519,7 @@ void ReactionWheelStateEffector::ReadInputs()
 /*! This method is used to read the new commands vector and set the RW
  firings appropriately.  It assumes that the ReadInputs method has already been
  run successfully.
- @return void
+
  @param CurrentTime The current simulation time converted to a double
  */
 void ReactionWheelStateEffector::ConfigureRWRequests(double CurrentTime)
@@ -517,7 +537,14 @@ void ReactionWheelStateEffector::ConfigureRWRequests(double CurrentTime)
 			} else if(CmdIt->u_cmd < -this->ReactionWheelData[RWIter]->u_max) {
 				CmdIt->u_cmd = -this->ReactionWheelData[RWIter]->u_max;
 			}
-		}
+		} else {
+            // Warning for unlimited torque with potentially small spacecraft
+            static bool warningIssued = false;
+            if (!warningIssued && std::abs(CmdIt->u_cmd) > this->largeTorqueThreshold) {  // Threshold for "large" torque
+                bskLogger.bskLog(BSK_WARNING, "Using unlimited reaction wheel torque (u_max <= 0). This can cause numerical instability with small spacecraft inertia. Consider setting useMaxTorque=True or increasing spacecraft inertia.");
+                warningIssued = true;
+            }
+        }
 
 		// minimum torque
 		if (std::abs(CmdIt->u_cmd) < this->ReactionWheelData[RWIter]->u_min) {
@@ -554,7 +581,7 @@ void ReactionWheelStateEffector::ConfigureRWRequests(double CurrentTime)
  configuration data based on that incoming command set.  Note that the main
  dynamical method (ComputeDynamics()) is not called here and is intended to be
  called from the dynamics plant in the system
- @return void
+
  @param CurrentSimNanos The current simulation time in nanoseconds
  */
 void ReactionWheelStateEffector::UpdateState(uint64_t CurrentSimNanos)

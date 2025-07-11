@@ -87,6 +87,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 from Basilisk.architecture import messaging
+from Basilisk.architecture import astroConstants
 from Basilisk.fswAlgorithms import attTrackingError
 from Basilisk.fswAlgorithms import hillPoint
 from Basilisk.fswAlgorithms import mrpFeedback
@@ -456,8 +457,8 @@ def run(show_plots):
     # specify orbits of gravitational bodies
     # https://ssd.jpl.nasa.gov/horizons.cgi#results
     # December 31st, 2018
-    oeAsteroid = planetEphemeris.ClassicElementsMsgPayload()
-    oeAsteroid.a = 1.1259 * orbitalMotion.AU * 1000  # meters
+    oeAsteroid = planetEphemeris.ClassicElements()
+    oeAsteroid.a = 1.1259 * astroConstants.AU * 1000  # meters
     oeAsteroid.e = 0.20373
     oeAsteroid.i = 6.0343 * macros.D2R
     oeAsteroid.Omega = 2.01820 * macros.D2R

@@ -34,17 +34,26 @@ import math
 import numpy as np
 from Basilisk import __path__
 from Basilisk.architecture import messaging
-from Basilisk.fswAlgorithms import (hillPoint, attTrackingError, mrpFeedback,
-                                    rwMotorTorque, opNavPoint, headingSuKF, relativeODuKF, horizonOpNav,
-                                    pixelLineConverter, faultDetection, pixelLineBiasUKF)
+from Basilisk.fswAlgorithms import (
+    attTrackingError,
+    faultDetection,
+    headingSuKF,
+    hillPoint,
+    horizonOpNav,
+    mrpFeedback,
+    opNavPoint,
+    pixelLineBiasUKF,
+    pixelLineConverter,
+    relativeODuKF,
+    rwMotorTorque,
+)
 from Basilisk.utilities import RigidBodyKinematics as rbk
-from Basilisk.utilities import fswSetupRW, orbitalMotion, macros
-from Basilisk.utilities import deprecated
+from Basilisk.utilities import deprecated, fswSetupRW, macros, orbitalMotion
 
 bskPath = __path__[0]
 
 try:
-    from Basilisk.fswAlgorithms import limbFinding, houghCircles  # FSW for OpNav
+    from Basilisk.fswAlgorithms import houghCircles, limbFinding  # FSW for OpNav
 except ImportError:
     print("OpNav Modules Missing, check build options")
 
@@ -72,7 +81,7 @@ class BSKFswModels():
         # Define process name and default time-step for all FSW tasks defined later on
         self.processName = SimBase.FSWProcessName
         self.processTasksTimeStep = macros.sec2nano(fswRate)
-        
+
         # Create module data and module wraps
         self.hillPoint = hillPoint.hillPoint()
         self.hillPoint.ModelTag = "hillPoint"
@@ -85,7 +94,7 @@ class BSKFswModels():
 
         self.mrpFeedbackRWs = mrpFeedback.mrpFeedback()
         self.mrpFeedbackRWs.ModelTag = "mrpFeedbackRWs"
-        
+
         self.rwMotorTorque = rwMotorTorque.rwMotorTorque()
         self.rwMotorTorque.ModelTag = "rwMotorTorque"
 
@@ -122,7 +131,7 @@ class BSKFswModels():
 
         # Initialize all modules
         self.InitAllFSWObjects(SimBase)
-        
+
         # Create tasks
         SimBase.fswProc.addTask(SimBase.CreateNewTask("opNavPointTask", self.processTasksTimeStep), 20)
         SimBase.fswProc.addTask(SimBase.CreateNewTask("headingPointTask", self.processTasksTimeStep), 20)
@@ -215,114 +224,203 @@ class BSKFswModels():
         # Create events to be called for triggering GN&C maneuvers
         SimBase.fswProc.disableAllTasks()
 
-        SimBase.createNewEvent("initiateStandby", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'standby'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()"
-                                ])
+        SimBase.createNewEvent(
+            "initiateStandby",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "standby",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+            ),
+        )
 
-        SimBase.createNewEvent("prepOpNav", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'prepOpNav'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('opNavPointTaskCheat')",
-                                "self.enableTask('mrpFeedbackRWsTask')"])
+        SimBase.createNewEvent(
+            "prepOpNav",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "prepOpNav",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("opNavPointTaskCheat"),
+                self.enableTask("mrpFeedbackRWsTask"),
+            ),
+        )
 
-        SimBase.createNewEvent("imageGen", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'imageGen'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('imageProcTask')",
-                                "self.enableTask('opNavPointTaskCheat')",
-                                "self.enableTask('mrpFeedbackRWsTask')"])
+        SimBase.createNewEvent(
+            "imageGen",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "imageGen",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("imageProcTask"),
+                self.enableTask("opNavPointTaskCheat"),
+                self.enableTask("mrpFeedbackRWsTask"),
+            ),
+        )
 
-        SimBase.createNewEvent("pointOpNav", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'pointOpNav'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('opNavPointTask')",
-                                "self.enableTask('mrpFeedbackRWsTask')"])
+        SimBase.createNewEvent(
+            "pointOpNav",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "pointOpNav",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("opNavPointTask"),
+                self.enableTask("mrpFeedbackRWsTask"),
+            ),
+        )
 
-        SimBase.createNewEvent("pointHead", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'pointHead'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('headingPointTask')",
-                                "self.enableTask('mrpFeedbackRWsTask')"])
+        SimBase.createNewEvent(
+            "pointHead",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "pointHead",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("headingPointTask"),
+                self.enableTask("mrpFeedbackRWsTask"),
+            ),
+        )
 
-        SimBase.createNewEvent("pointLimb", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'pointLimb'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('opNavPointLimbTask')",
-                                "self.enableTask('mrpFeedbackRWsTask')"])
+        SimBase.createNewEvent(
+            "pointLimb",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "pointLimb",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("opNavPointLimbTask"),
+                self.enableTask("mrpFeedbackRWsTask"),
+            ),
+        )
 
-        SimBase.createNewEvent("OpNavOD", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'OpNavOD'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('opNavPointTaskCheat')",
-                                "self.enableTask('mrpFeedbackRWsTask')",
-                                "self.enableTask('opNavODTask')"])
+        SimBase.createNewEvent(
+            "OpNavOD",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "OpNavOD",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("opNavPointTaskCheat"),
+                self.enableTask("mrpFeedbackRWsTask"),
+                self.enableTask("opNavODTask"),
+            ),
+        )
 
-        SimBase.createNewEvent("OpNavODLimb", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'OpNavODLimb'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('opNavPointTaskCheat')",
-                                "self.enableTask('mrpFeedbackRWsTask')",
-                                "self.enableTask('opNavODTaskLimb')"])
+        SimBase.createNewEvent(
+            "OpNavODLimb",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "OpNavODLimb",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("opNavPointTaskCheat"),
+                self.enableTask("mrpFeedbackRWsTask"),
+                self.enableTask("opNavODTaskLimb"),
+            ),
+        )
 
-        SimBase.createNewEvent("OpNavODB", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'OpNavODB'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('opNavPointTaskCheat')",
-                                "self.enableTask('mrpFeedbackRWsTask')",
-                                "self.enableTask('opNavODTaskB')"])
+        SimBase.createNewEvent(
+            "OpNavODB",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "OpNavODB",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("opNavPointTaskCheat"),
+                self.enableTask("mrpFeedbackRWsTask"),
+                self.enableTask("opNavODTaskB"),
+            ),
+        )
 
-        SimBase.createNewEvent("OpNavAttOD", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'OpNavAttOD'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('opNavAttODTask')",
-                                "self.enableTask('mrpFeedbackRWsTask')"])
+        SimBase.createNewEvent(
+            "OpNavAttOD",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "OpNavAttOD",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("opNavAttODTask"),
+                self.enableTask("mrpFeedbackRWsTask"),
+            ),
+        )
 
-        SimBase.createNewEvent("OpNavAttODLimb", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'OpNavAttODLimb'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('opNavAttODLimbTask')",
-                                "self.enableTask('mrpFeedbackRWsTask')"])
+        SimBase.createNewEvent(
+            "OpNavAttODLimb",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "OpNavAttODLimb",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("opNavAttODLimbTask"),
+                self.enableTask("mrpFeedbackRWsTask"),
+            ),
+        )
 
-        SimBase.createNewEvent("CNNAttOD", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'CNNAttOD'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('cnnAttODTask')",
-                                "self.enableTask('mrpFeedbackRWsTask')"])
+        SimBase.createNewEvent(
+            "CNNAttOD",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "CNNAttOD",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("cnnAttODTask"),
+                self.enableTask("mrpFeedbackRWsTask"),
+            ),
+        )
 
-        SimBase.createNewEvent("FaultDet", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'FaultDet'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('attODFaultDet')",
-                                "self.enableTask('mrpFeedbackRWsTask')"])
+        SimBase.createNewEvent(
+            "FaultDet",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "FaultDet",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("attODFaultDet"),
+                self.enableTask("mrpFeedbackRWsTask"),
+            ),
+        )
 
-        SimBase.createNewEvent("ODFaultDet", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'ODFaultDet'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('opNavPointTaskCheat')",
-                                "self.enableTask('mrpFeedbackRWsTask')",
-                                "self.enableTask('opNavFaultDet')"])
+        SimBase.createNewEvent(
+            "ODFaultDet",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "ODFaultDet",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("opNavPointTaskCheat"),
+                self.enableTask("mrpFeedbackRWsTask"),
+                self.enableTask("opNavFaultDet"),
+            ),
+        )
 
-        SimBase.createNewEvent("FaultDetCNN", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'FaultDetCNN'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('cnnFaultDet')",
-                                "self.enableTask('mrpFeedbackRWsTask')"])
+        SimBase.createNewEvent(
+            "FaultDetCNN",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "FaultDetCNN",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("cnnFaultDet"),
+                self.enableTask("mrpFeedbackRWsTask"),
+            ),
+        )
 
     # ------------------------------------------------------------------------------------------- #
     # These are module-initialization methods
@@ -398,14 +496,14 @@ class BSKFswModels():
         rwElAngle = np.array([40.0, 40.0, 40.0, 40.0]) * macros.D2R
         rwAzimuthAngle = np.array([45.0, 135.0, 225.0, 315.0]) * macros.D2R
         wheelJs = 50.0 / (6000.0 * math.pi * 2.0 / 60)
-        
+
         fswSetupRW.clearSetup()
         for elAngle, azAngle in zip(rwElAngle, rwAzimuthAngle):
             gsHat = (rbk.Mi(-azAngle, 3).dot(rbk.Mi(elAngle, 2))).dot(np.array([1, 0, 0]))
             fswSetupRW.create(gsHat,  # spin axis
                               wheelJs,  # kg*m^2
                               0.2)  # Nm        uMax
-        
+
         self.fswRwConfigMsg = fswSetupRW.writeConfigMessage()
 
     def SetRWMotorTorque(self, SimBase):
@@ -591,212 +689,3 @@ class BSKFswModels():
         self.opnavSecondaryMsg.write(messaging.OpNavMsgPayload())
 
         self.opnavCirclesMsg.write(messaging.OpNavCirclesMsgPayload())
-
-    @property
-    def hillPointData(self):
-        return self.hillPoint
-
-    hillPointData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to hillPointData as hillPoint",
-        hillPointData)
-
-    @property
-    def hillPointWrap(self):
-        return self.hillPoint
-
-    hillPointWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to hillPointWrap as hillPoint",
-        hillPointWrap)
-
-
-    @property
-    def opNavPointData(self):
-        return self.opNavPoint
-
-    opNavPointData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to opNavPointData as opNavPoint",
-        opNavPointData)
-
-    @property
-    def opNavPointWrap(self):
-        return self.opNavPoint
-
-    opNavPointWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to opNavPointWrap as opNavPoint",
-        opNavPointWrap)
-
-
-    @property
-    def trackingErrorCamData(self):
-        return self.trackingErrorCam
-
-    trackingErrorCamData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to trackingErrorCamData as trackingErrorCam",
-        trackingErrorCamData)
-
-    @property
-    def trackingErrorCamWrap(self):
-        return self.trackingErrorCam
-
-    trackingErrorCamWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to trackingErrorCamWrap as trackingErrorCam",
-        trackingErrorCamWrap)
-
-
-    @property
-    def mrpFeedbackRWsData(self):
-        return self.mrpFeedbackRWs
-
-    mrpFeedbackRWsData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackRWsData as mrpFeedbackRWs",
-        mrpFeedbackRWsData)
-
-    @property
-    def mrpFeedbackRWsWrap(self):
-        return self.mrpFeedbackRWs
-
-    mrpFeedbackRWsWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackRWsWrap as mrpFeedbackRWs",
-        mrpFeedbackRWsWrap)
-
-
-    @property
-    def rwMotorTorqueData(self):
-        return self.rwMotorTorque
-
-    rwMotorTorqueData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rwMotorTorqueData as rwMotorTorque",
-        rwMotorTorqueData)
-
-    @property
-    def rwMotorTorqueWrap(self):
-        return self.rwMotorTorque
-
-    rwMotorTorqueWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rwMotorTorqueWrap as rwMotorTorque",
-        rwMotorTorqueWrap)
-
-
-    @property
-    def pixelLineData(self):
-        return self.pixelLine
-
-    pixelLineData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to pixelLineData as pixelLine",
-        pixelLineData)
-
-    @property
-    def pixelLineWrap(self):
-        return self.pixelLine
-
-    pixelLineWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to pixelLineWrap as pixelLine",
-        pixelLineWrap)
-
-
-    @property
-    def opNavFaultData(self):
-        return self.opNavFault
-
-    opNavFaultData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to opNavFaultData as opNavFault",
-        opNavFaultData)
-
-    @property
-    def opNavFaultWrap(self):
-        return self.opNavFault
-
-    opNavFaultWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to opNavFaultWrap as opNavFault",
-        opNavFaultWrap)
-
-
-    @property
-    def horizonNavData(self):
-        return self.horizonNav
-
-    horizonNavData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to horizonNavData as horizonNav",
-        horizonNavData)
-
-    @property
-    def horizonNavWrap(self):
-        return self.horizonNav
-
-    horizonNavWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to horizonNavWrap as horizonNav",
-        horizonNavWrap)
-
-
-    @property
-    def relativeODData(self):
-        return self.relativeOD
-
-    relativeODData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to relativeODData as relativeOD",
-        relativeODData)
-
-    @property
-    def relativeODWrap(self):
-        return self.relativeOD
-
-    relativeODWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to relativeODWrap as relativeOD",
-        relativeODWrap)
-
-
-    @property
-    def pixelLineFilterData(self):
-        return self.pixelLineFilter
-
-    pixelLineFilterData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to pixelLineFilterData as pixelLineFilter",
-        pixelLineFilterData)
-
-    @property
-    def pixelLineFilterWrap(self):
-        return self.pixelLineFilter
-
-    pixelLineFilterWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to pixelLineFilterWrap as pixelLineFilter",
-        pixelLineFilterWrap)
-
-
-    @property
-    def headingUKFData(self):
-        return self.headingUKF
-
-    headingUKFData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to headingUKFData as headingUKF",
-        headingUKFData)
-
-    @property
-    def headingUKFWrap(self):
-        return self.headingUKF
-
-    headingUKFWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to headingUKFWrap as headingUKF",
-        headingUKFWrap)
-# BSKFswModels()

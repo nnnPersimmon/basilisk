@@ -70,7 +70,7 @@ ThrusterStateEffector::~ThrusterStateEffector()
 }
 
 /*! This method is used to reset the module.
- @return void
+
  */
 void ThrusterStateEffector::Reset(uint64_t CurrentSimNanos)
 {
@@ -86,7 +86,7 @@ void ThrusterStateEffector::Reset(uint64_t CurrentSimNanos)
 
 /*! This method is used to read the incoming command message and set the
  associated command structure for operating the thrusters.
- @return void
+
  */
 bool ThrusterStateEffector::ReadInputs()
 {
@@ -124,16 +124,18 @@ bool ThrusterStateEffector::ReadInputs()
 /*! This method is here to write the output message structure into the specified
  message.
  @param CurrentClock The current time used for time-stamping the message
- @return void
+
  */
 void ThrusterStateEffector::writeOutputStateMessages(uint64_t CurrentClock)
 {
     int idx = 0;
-    std::vector<THRSimConfig>::iterator it;
+    std::vector<std::shared_ptr<THRSimConfig>>::iterator itp;
+    std::shared_ptr<THRSimConfig> it;
 
     THROutputMsgPayload tmpThruster;
-    for (it = this->thrusterData.begin(); it != this->thrusterData.end(); ++it)
+    for (itp = this->thrusterData.begin(); itp != this->thrusterData.end(); ++itp)
     {
+        it = *itp;
         tmpThruster = this->thrusterOutMsgs[idx]->zeroMsgPayload;
         eigenVector3d2CArray(it->thrLoc_B, tmpThruster.thrusterLocation);
         eigenVector3d2CArray(it->thrDir_B, tmpThruster.thrusterDirection);
@@ -154,32 +156,32 @@ void ThrusterStateEffector::writeOutputStateMessages(uint64_t CurrentClock)
  run successfully.  It honors all previous thruster firings if they are still
  active.  Note that for unit testing purposes you can insert firings directly
  into NewThrustCmds.
- @return void
+
  */
 void ThrusterStateEffector::ConfigureThrustRequests()
 {
-    std::vector<THRSimConfig>::iterator it;
     std::vector<double>::iterator CmdIt;
+    size_t THIter = 0;
     //! - Iterate through the list of thruster commands that we read in.
-    for (CmdIt = NewThrustCmds.begin(), it = this->thrusterData.begin();
-        it != this->thrusterData.end(); it++, CmdIt++)
+    for(CmdIt = NewThrustCmds.begin(); CmdIt != NewThrustCmds.end(); CmdIt++)
     {
-        if (*CmdIt >= it->MinOnTime) /// - Check to see if we have met minimum for each thruster
+        if (*CmdIt >= this->thrusterData[THIter]->MinOnTime) /// - Check to see if we have met minimum for each thruster
         {
             //! - For each case where we are above the minimum firing request, reset the thruster
-            it->ThrustOps.ThrustOnCmd = *CmdIt;
-            it->ThrustOps.fireCounter += it->ThrustOps.ThrustFactor > 0.0
+            this->thrusterData[THIter]->ThrustOps.ThrustOnCmd = *CmdIt;
+            this->thrusterData[THIter]->ThrustOps.fireCounter += this->thrusterData[THIter]->ThrustOps.ThrustFactor > 0.0
                 ? 0 : 1;
         }
         else
         {
             //! - Will ensure that thruster shuts down once this cmd expires
-            it->ThrustOps.ThrustOnCmd = it->ThrustOps.ThrustFactor > 1E-5
+            this->thrusterData[THIter]->ThrustOps.ThrustOnCmd = this->thrusterData[THIter]->ThrustOps.ThrustFactor > 1E-5
                 ? *CmdIt : 0.0;
         }
-        it->ThrustOps.ThrusterEndTime = this->prevCommandTime + it->ThrustOps.ThrustOnCmd;
+        this->thrusterData[THIter]->ThrustOps.ThrusterEndTime = this->prevCommandTime + this->thrusterData[THIter]->ThrustOps.ThrustOnCmd;
         //! After we have assigned the firing to the internal thruster, zero the command request.
         *CmdIt = 0.0;
+        THIter++;
     }
 
     return;
@@ -188,7 +190,7 @@ void ThrusterStateEffector::ConfigureThrustRequests()
 /*! This method is used to update the location and orientation of the thrusters
 * at every UpdateState call when the thrusters are attached to a body other than
 * the hub.
- @return void
+
  */
 void ThrusterStateEffector::UpdateThrusterProperties()
 {
@@ -236,9 +238,9 @@ void ThrusterStateEffector::UpdateThrusterProperties()
     }
 }
 
-void ThrusterStateEffector::addThruster(THRSimConfig* newThruster)
+void ThrusterStateEffector::addThruster(std::shared_ptr<THRSimConfig> newThruster)
 {
-    this->thrusterData.push_back(*newThruster);
+    this->thrusterData.push_back(newThruster);
 
     // Create corresponding output message
     Message<THROutputMsgPayload>* msg;
@@ -261,9 +263,9 @@ void ThrusterStateEffector::addThruster(THRSimConfig* newThruster)
     this->bodyToHubInfo.push_back(attachedBodyToHub);
 }
 
-void ThrusterStateEffector::addThruster(THRSimConfig* newThruster, Message<SCStatesMsgPayload>* bodyStateMsg)
+void ThrusterStateEffector::addThruster(std::shared_ptr<THRSimConfig> newThruster, Message<SCStatesMsgPayload>* bodyStateMsg)
 {
-    this->thrusterData.push_back(*newThruster);
+    this->thrusterData.push_back(newThruster);
 
     // Create corresponding output message
     Message<THROutputMsgPayload>* msg;
@@ -288,13 +290,13 @@ void ThrusterStateEffector::addThruster(THRSimConfig* newThruster, Message<SCSta
 }
 
 /*! This method is used to link the states to the thrusters
- @return void
+
  @param states The states to link
  */
 void ThrusterStateEffector::linkInStates(DynParamManager& states){
-    this->hubSigma = states.getStateObject("hubSigma");
-	this->hubOmega = states.getStateObject("hubOmega");
-    this->inertialPositionProperty = states.getPropertyReference(this->nameOfSpacecraftAttachedTo + "r_BN_N");
+    this->hubSigma = states.getStateObject(this->stateNameOfSigma);
+    this->hubOmega = states.getStateObject(this->stateNameOfOmega);
+    this->inertialPositionProperty = states.getPropertyReference(this->nameOfSpacecraftAttachedTo + this->propName_inertialPosition);
 }
 
 /*! This method allows the thruster state effector to register its state kappa with the dyn param manager */
@@ -320,7 +322,8 @@ void ThrusterStateEffector::registerStates(DynParamManager& states)
 /*! This method is used to find the derivatives for the thruster stateEffector */
 void ThrusterStateEffector::computeDerivatives(double integTime, Eigen::Vector3d rDDot_BN_N, Eigen::Vector3d omegaDot_BN_B, Eigen::Vector3d sigma_BN)
 {
-    std::vector<THRSimConfig>::iterator it;
+    std::vector<std::shared_ptr<THRSimConfig>>::iterator itp;
+    std::shared_ptr<THRSimConfig> it;
     THROperation* ops;
     uint64_t i;
 
@@ -328,8 +331,9 @@ void ThrusterStateEffector::computeDerivatives(double integTime, Eigen::Vector3d
     Eigen::MatrixXd kappaDot(this->thrusterData.size(), 1);
 
     // Loop through all thrusters to initialize each state variable
-    for (it = this->thrusterData.begin(), i = 0; it != this->thrusterData.end(); it++, i++)
+    for (itp = this->thrusterData.begin(), i = 0; itp != this->thrusterData.end(); itp++, i++)
     {
+        it = *itp;
         // Grab the thruster operations payload
         ops = &it->ThrustOps;
 
@@ -340,9 +344,6 @@ void ThrusterStateEffector::computeDerivatives(double integTime, Eigen::Vector3d
         else {
             kappaDot(i, 0) = -this->kappaState->state(i, 0) * it->cutoffFrequency;
         }
-
-        // Set the IspFactor to 1 to check that there is mass flow
-        ops->IspFactor = 1.0;
 
         // Save the state to thruster ops
         ops->ThrustFactor = this->kappaState->state(i, 0);
@@ -381,14 +382,15 @@ void ThrusterStateEffector::calcForceTorqueOnBody(double integTime, Eigen::Vecto
     axesWeightMatrix << 2, 0, 0, 0, 1, 0, 0, 0, 1;
 
     // Loop variables
-    std::vector<THRSimConfig>::iterator it;
+    std::shared_ptr<THRSimConfig> it;
     THROperation* ops;
 
     //! - Iterate through all of the thrusters to aggregate the force/torque in the system
     int index;
-    for (it = this->thrusterData.begin(), index = 0; it != this->thrusterData.end(); it++, index++)
+    for(index = 0; index < this->thrusterData.size(); ++index)
     {
         // Save the thruster ops information
+        it = this->thrusterData[index];
         ops = &it->ThrustOps;
 
         // Compute the thruster properties wrt the hub (note that B refers to the F frame when extracting from the thruster info)
@@ -409,9 +411,9 @@ void ThrusterStateEffector::calcForceTorqueOnBody(double integTime, Eigen::Vecto
         if (!it->updateOnly) {
             //! - Add the mass depletion force contribution
             mDotNozzle = 0.0;
-            if (it->steadyIsp * ops->IspFactor > 0.0)
+            if (it->steadyIsp * ops->ThrustFactor > 0.0)
             {
-                mDotNozzle = it->MaxThrust / (EARTH_GRAV * it->steadyIsp);
+                mDotNozzle = it->MaxThrust * ops->ThrustFactor / (EARTH_GRAV * it->steadyIsp);
             }
             this->forceOnBody_B += 2 * mDotNozzle * (this->bodyToHubInfo.at(index).omega_FB_B + omegaLocal_BN_B).cross(thrustLocation_B);
 
@@ -445,19 +447,21 @@ void ThrusterStateEffector::updateContributions(double integTime, BackSubMatrice
 /*! This is the method for the thruster effector to add its contributions to the mass props and mass prop rates of the vehicle */
 void ThrusterStateEffector::updateEffectorMassProps(double integTime) {
 
-    std::vector<THRSimConfig>::iterator it;
+    std::vector<std::shared_ptr<THRSimConfig>>::iterator itp;
+    std::shared_ptr<THRSimConfig> it;
     THROperation* ops;
     double mDotSingle = 0.0;
     this->mDotTotal = 0.0;
     this->stateDerivContribution.setZero();
     //! - Iterate through all of the thrusters to aggregate the mass flow rate in the system
-    for (it = this->thrusterData.begin(); it != this->thrusterData.end(); it++)
+    for (itp = this->thrusterData.begin(); itp != this->thrusterData.end(); itp++)
     {
+        it = *itp;
         ops = &it->ThrustOps;
         mDotSingle = 0.0;
-        if (it->steadyIsp * ops->IspFactor > 0.0)
+        if (it->steadyIsp * ops->ThrustFactor > 0.0)
         {
-            mDotSingle = it->MaxThrust / (EARTH_GRAV * it->steadyIsp);
+            mDotSingle = it->MaxThrust * ops->ThrustFactor / (EARTH_GRAV * it->steadyIsp);
         }
         this->mDotTotal += mDotSingle;
     }
@@ -472,7 +476,7 @@ void ThrusterStateEffector::updateEffectorMassProps(double integTime) {
  configuration data based on that incoming command set.  Note that the main
  dynamical method (ComputeDynamics()) is not called here and is intended to be
  called from the dynamics plant in the system
- @return void
+
  @param CurrentSimNanos The current simulation time in nanoseconds
  */
 void ThrusterStateEffector::UpdateState(uint64_t CurrentSimNanos)

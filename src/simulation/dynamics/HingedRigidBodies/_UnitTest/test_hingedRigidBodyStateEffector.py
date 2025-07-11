@@ -39,6 +39,7 @@ from Basilisk.simulation import gravityEffector
 from Basilisk.simulation import extForceTorque
 from Basilisk.simulation import spacecraftSystem
 from Basilisk.architecture import messaging
+from Basilisk.utilities import deprecated
 
 # uncomment this line is this test is to be skipped in the global unit test run, adjust message as needed
 # @pytest.mark.skipif(conditionstring)
@@ -54,7 +55,12 @@ from Basilisk.architecture import messaging
                                       ])
 def test_hingedRigidBody(show_plots, function):
     """Module Unit Test"""
-    [testResults, testMessage] = eval(function + '(show_plots)')
+    testFunction = globals().get(function)
+
+    if testFunction is None:
+        raise ValueError(f"Function '{function}' not found in global scope")
+
+    [testResults, testMessage] = testFunction(show_plots)
     assert testResults < 1, testMessage
 
 @pytest.mark.parametrize("useScPlus", [True, False])
@@ -63,8 +69,10 @@ def test_hingedRigidBodyMotorTorque(show_plots, useScPlus):
     [testResults, testMessage] = hingedRigidBodyMotorTorque(show_plots, useScPlus)
     assert testResults < 1, testMessage
 
+
 def hingedRigidBodyGravity(show_plots):
     __tracebackhide__ = True
+    deprecated.filterwarnings("ignore", "SpacecraftSystem.SpacecraftSystem")
 
     testFailCount = 0  # zero unit test result counter
     testMessages = []  # create empty list to store test log messages
@@ -295,19 +303,20 @@ def hingedRigidBodyNoGravity(show_plots):
     # the mrp_steering_tracking() function will not be shown unless the
     # --fulltrace command line option is specified.
     __tracebackhide__ = True
+    deprecated.filterwarnings("ignore", "SpacecraftSystem.SpacecraftSystem")
 
-    testFailCount = 0  # zero unit test result counter  
+    testFailCount = 0  # zero unit test result counter
     testMessages = []  # create empty list to store test log messages
-    
+
     scObject = spacecraftSystem.SpacecraftSystem()
     scObject.ModelTag = "spacecraftBody"
-    
+
     unitTaskName = "unitTask"  # arbitrary name (don't change)
     unitProcessName = "TestProcess"  # arbitrary name (don't change)
-    
+
     #   Create a sim module as an empty container
     unitTestSim = SimulationBaseClass.SimBaseClass()
-    
+
     # Create test thread
     testProcessRate = macros.sec2nano(0.001)  # update process rate update time
     testProc = unitTestSim.CreateNewProcess(unitProcessName)
@@ -360,7 +369,7 @@ def hingedRigidBodyNoGravity(show_plots):
 
     dataLog = scObject.primaryCentralSpacecraft.scStateOutMsg.recorder()
     unitTestSim.AddModelToTask(unitTaskName, dataLog)
-    
+
     scLog = pythonVariableLogger.PythonVariableLogger({
         "totOrbEnergy": lambda _: scObject.primaryCentralSpacecraft.totOrbEnergy,
         "totOrbAngMomPntN_N": lambda _: scObject.primaryCentralSpacecraft.totOrbAngMomPntN_N,
@@ -526,6 +535,7 @@ def hingedRigidBodyNoGravityDamping(show_plots):
     # the mrp_steering_tracking() function will not be shown unless the
     # --fulltrace command line option is specified.
     __tracebackhide__ = True
+    deprecated.filterwarnings("ignore", "SpacecraftSystem.SpacecraftSystem")
 
     testFailCount = 0  # zero unit test result counter
     testMessages = []  # create empty list to store test log messages
@@ -715,6 +725,7 @@ def hingedRigidBodyThetaSS(show_plots):
     # the mrp_steering_tracking() function will not be shown unless the
     # --fulltrace command line option is specified.
     __tracebackhide__ = True
+    deprecated.filterwarnings("ignore", "SpacecraftSystem.SpacecraftSystem")
 
     testFailCount = 0  # zero unit test result counter
     testMessages = []  # create empty list to store test log messages
@@ -878,7 +889,7 @@ def hingedRigidBodyThetaSS(show_plots):
     PlotTitle = "BOE Calculation for Steady State Theta 2 Deflection vs Simulation"
     format = r"width=0.8\textwidth"
     unitTestSupport.writeFigureLaTeX(PlotName, PlotTitle, plt, format, path)
-    
+
     if show_plots:
         plt.show()
     plt.close("all")
@@ -907,6 +918,7 @@ def hingedRigidBodyFrequencyAmp(show_plots):
     # the mrp_steering_tracking() function will not be shown unless the
     # --fulltrace command line option is specified.
     __tracebackhide__ = True
+    deprecated.filterwarnings("ignore", "SpacecraftSystem.SpacecraftSystem")
 
     testFailCount = 0  # zero unit test result counter
     testMessages = []  # create empty list to store test log messages
@@ -1189,6 +1201,7 @@ def hingedRigidBodyMotorTorque(show_plots, useScPlus):
     # the mrp_steering_tracking() function will not be shown unless the
     # --fulltrace command line option is specified.
     __tracebackhide__ = True
+    deprecated.filterwarnings("ignore", "SpacecraftSystem.SpacecraftSystem")
 
     testFailCount = 0  # zero unit test result counter
     testMessages = []  # create empty list to store test log messages
@@ -1429,6 +1442,7 @@ def hingedRigidBodyLagrangVsBasilisk(show_plots):
     # the mrp_steering_tracking() function will not be shown unless the
     # --fulltrace command line option is specified.
     __tracebackhide__ = True
+    deprecated.filterwarnings("ignore", "SpacecraftSystem.SpacecraftSystem")
 
     testFailCount = 0  # zero unit test result counter
     testMessages = []  # create empty list to store test log messages
@@ -1872,10 +1886,10 @@ class boxAndWingParameters:
     d = 0
 
 if __name__ == "__main__":
-    # test_hingedRigidBodyGravity(True)
-    # test_hingedRigidBodyNoGravity(True)
-    # test_hingedRigidBodyNoGravityDamping(True)
-    # test_hingedRigidBodyThetaSS(True)
-    # test_hingedRigidBodyFrequencyAmp(True)
-    # test_hingedRigidBodyMotorTorque(True, True)
-    hingedRigidBodyLagrangVsBasilisk(True)
+    hingedRigidBodyGravity(False)
+    # hingedRigidBodyNoGravity(True)
+    # hingedRigidBodyNoGravityDamping(True)
+    # hingedRigidBodyThetaSS(True)
+    # hingedRigidBodyFrequencyAmp(True)
+    # hingedRigidBodyMotorTorque(True, True)
+    # hingedRigidBodyLagrangVsBasilisk(True)

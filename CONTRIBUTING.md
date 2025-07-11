@@ -41,10 +41,12 @@ disabled). Always use the "Merge" strategy.
     -   In combination with the restrictions above, this ensures that features are neatly bracketed by merge commits
     on either side, making a clear hierarchical separation between features added to `develop` and the work that went
     into each feature.
+- If the PR is linked to an issue, then the issue will be closed when
+  the PR is closed and pushed to `develop`.s
 
 ## Coding Conventions
 
-A [coding conventions](https://hanspeterschaub.info/basilisk/Support/Developer/CodingGuidlines.html) document exists to
+A [coding conventions](https://avslab.github.io/basilisk/Support/Developer/CodingGuidlines.html) document exists to
 explain peculiarities and assist in onboarding.
 
 -  All development should correspond to a GitHub ticket, and branch names and PRs should include the ticket name.

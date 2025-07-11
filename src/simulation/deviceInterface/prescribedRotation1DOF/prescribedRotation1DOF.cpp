@@ -25,7 +25,7 @@
 #include <cmath>
 
 /*! This method self initializes the C-wrapped output messages.
- @return void
+
 */
 void PrescribedRotation1DOF::SelfInit() {
     HingedRigidBodyMsg_C_init(&this->spinningBodyOutMsgC);
@@ -33,7 +33,7 @@ void PrescribedRotation1DOF::SelfInit() {
 }
 
 /*! This method resets required module variables and checks the input messages to ensure they are linked.
- @return void
+
  @param callTime [ns] Time the method is called
 */
 void PrescribedRotation1DOF::Reset(uint64_t callTime) {
@@ -51,7 +51,7 @@ void PrescribedRotation1DOF::Reset(uint64_t callTime) {
 
 /*! This method profiles the spinning body rotation and updates the prescribed rotational states as a function of time.
  The spinning body rotational states are then written to the output message.
- @return void
+
  @param callTime [ns] Time the method is called
 */
 void PrescribedRotation1DOF::UpdateState(uint64_t callTime) {
@@ -92,7 +92,7 @@ void PrescribedRotation1DOF::UpdateState(uint64_t callTime) {
 }
 
 /*! This intermediate method groups the calculation of rotation parameters into a single method.
- @return void
+
 */
 void PrescribedRotation1DOF::computeRotationParameters() {
     if (this->coastOptionBangDuration > 0.0) {
@@ -111,7 +111,7 @@ void PrescribedRotation1DOF::computeRotationParameters() {
 }
 
 /*! This method computes the required parameters for the rotation with a non-smoothed bang-bang acceleration profile.
- @return void
+
 */
 void PrescribedRotation1DOF::computeBangBangParametersNoSmoothing() {
     // Determine the total time required for the rotation
@@ -129,7 +129,7 @@ void PrescribedRotation1DOF::computeBangBangParametersNoSmoothing() {
 }
 
 /*! This method computes the required parameters for the rotation with a non-smoothed bang-coast-bang acceleration profile.
- @return void
+
 */
 void PrescribedRotation1DOF::computeBangCoastBangParametersNoSmoothing() {
     double sign = (this->thetaRef - this->thetaInit) / abs(this->thetaRef - this->thetaInit);
@@ -163,7 +163,7 @@ void PrescribedRotation1DOF::computeBangCoastBangParametersNoSmoothing() {
 }
 
 /*! This method computes the required parameters for the rotation with a smoothed bang-bang acceleration profile.
- @return void
+
 */
 void PrescribedRotation1DOF::computeSmoothedBangBangParameters() {
     double sign = (this->thetaRef - this->thetaInit) / abs(this->thetaRef - this->thetaInit);
@@ -213,7 +213,7 @@ void PrescribedRotation1DOF::computeSmoothedBangBangParameters() {
 }
 
 /*! This method computes the required parameters for the rotation with a smoothed bang-coast-bang acceleration profile.
- @return void
+
 */
 void PrescribedRotation1DOF::computeSmoothedBangCoastBangParameters() {
     double sign = (this->thetaRef - this->thetaInit) / abs(this->thetaRef - this->thetaInit);
@@ -273,7 +273,7 @@ void PrescribedRotation1DOF::computeSmoothedBangCoastBangParameters() {
 }
 
 /*! This intermediate method groups the calculation of the current rotational states into a single method.
- @return void
+
 */
 void PrescribedRotation1DOF::computeCurrentState(double t) {
     if (this->coastOptionBangDuration > 0.0) {
@@ -414,7 +414,7 @@ bool PrescribedRotation1DOF::isInCoastSegment(double t) const {
 }
 
 /*! This method computes the scalar rotational states for the first bang segment.
- @return void
+
  @param t [s] Current simulation time
 */
 void PrescribedRotation1DOF::computeFirstBangSegment(double t) {
@@ -432,7 +432,7 @@ void PrescribedRotation1DOF::computeFirstBangSegment(double t) {
 }
 
 /*! This method computes the scalar rotational states for the second bang segment.
- @return void
+
  @param t [s] Current simulation time
 */
 void PrescribedRotation1DOF::computeSecondBangSegment(double t) {
@@ -456,7 +456,7 @@ void PrescribedRotation1DOF::computeSecondBangSegment(double t) {
 }
 
 /*! This method computes the first smoothing segment scalar rotational states for the smoothed profiler options.
- @return void
+
  @param t [s] Current simulation time
 */
 void PrescribedRotation1DOF::computeFirstSmoothedSegment(double t) {
@@ -480,7 +480,7 @@ void PrescribedRotation1DOF::computeFirstSmoothedSegment(double t) {
 }
 
 /*! This method computes the second smoothing segment scalar rotational states for the smoothed profiler options.
- @return void
+
  @param t [s] Current simulation time
 */
 void PrescribedRotation1DOF::computeSecondSmoothedSegment(double t) {
@@ -529,7 +529,7 @@ void PrescribedRotation1DOF::computeSecondSmoothedSegment(double t) {
 }
 
 /*! This method computes the third smoothing segment scalar rotational states for the smoothed profiler options.
- @return void
+
  @param t [s] Current simulation time
 */
 void PrescribedRotation1DOF::computeThirdSmoothedSegment(double t) {
@@ -581,7 +581,7 @@ void PrescribedRotation1DOF::computeThirdSmoothedSegment(double t) {
 }
 
 /*! This method computes the fourth smoothing segment scalar rotational states for the smoothed bang-coast-bang option.
- @return void
+
  @param t [s] Current simulation time
 */
 void PrescribedRotation1DOF::computeFourthSmoothedSegment(double t) {
@@ -605,7 +605,7 @@ void PrescribedRotation1DOF::computeFourthSmoothedSegment(double t) {
 }
 
 /*! This method computes the coast segment scalar rotational states
- @return void
+
  @param t [s] Current simulation time
 */
 void PrescribedRotation1DOF::computeCoastSegment(double t) {
@@ -621,7 +621,7 @@ void PrescribedRotation1DOF::computeCoastSegment(double t) {
 }
 
 /*! This method computes the scalar rotational states when the rotation is complete.
- @return void
+
 */
 void PrescribedRotation1DOF::computeRotationComplete() {
     this->thetaDDot = 0.0;
@@ -631,7 +631,7 @@ void PrescribedRotation1DOF::computeRotationComplete() {
 }
 
 /*! This method writes the module output messages and computes the output message data.
- @return void
+
 */
 void PrescribedRotation1DOF::writeOutputMessages(uint64_t callTime) {
     // Create the output buffer messages
@@ -642,21 +642,21 @@ void PrescribedRotation1DOF::writeOutputMessages(uint64_t callTime) {
     spinningBodyOut = HingedRigidBodyMsgPayload();
     prescribedRotationOut = PrescribedRotationMsgPayload();
 
-    // Compute the angular velocity of frame F wrt frame M in F frame components
-    Eigen::Vector3d omega_FM_F = this->thetaDot * this->rotHat_M;  // [rad/s]
+    // Compute the angular velocity of frame P wrt frame M in P frame components
+    Eigen::Vector3d omega_PM_P = this->thetaDot * this->rotHat_M;  // [rad/s]
 
-    // Compute the B frame time derivative of omega_FM_F in F frame components
-    Eigen::Vector3d omegaPrime_FM_F = this->thetaDDot * this->rotHat_M;  // [rad/s^2]
+    // Compute the B frame time derivative of omega_PM_P in P frame components
+    Eigen::Vector3d omegaPrime_PM_P = this->thetaDDot * this->rotHat_M;  // [rad/s^2]
 
-    // Compute the MRP attitude of spinning body frame F with respect to frame M
-    Eigen::Vector3d sigma_FM = this->computeSigma_FM();
+    // Compute the MRP attitude of spinning body frame P with respect to frame M
+    Eigen::Vector3d sigma_PM = this->computeSigma_PM();
 
     // Copy the module variables to the output buffer messages
     spinningBodyOut.theta = this->theta;
     spinningBodyOut.thetaDot = this->thetaDot;
-    eigenVector3d2CArray(omega_FM_F, prescribedRotationOut.omega_FM_F);
-    eigenVector3d2CArray(omegaPrime_FM_F, prescribedRotationOut.omegaPrime_FM_F);
-    eigenVector3d2CArray(sigma_FM, prescribedRotationOut.sigma_FM);
+    eigenVector3d2CArray(omega_PM_P, prescribedRotationOut.omega_PM_P);
+    eigenVector3d2CArray(omegaPrime_PM_P, prescribedRotationOut.omegaPrime_PM_P);
+    eigenVector3d2CArray(sigma_PM, prescribedRotationOut.sigma_PM);
 
     // Write the output messages
     this->spinningBodyOutMsg.write(&spinningBodyOut, moduleID, callTime);
@@ -665,37 +665,37 @@ void PrescribedRotation1DOF::writeOutputMessages(uint64_t callTime) {
     PrescribedRotationMsg_C_write(&prescribedRotationOut, &prescribedRotationOutMsgC, this->moduleID, callTime);
 }
 
-/*! This method computes the current spinning body MRP attitude relative to the mount frame: sigma_FM
- @return void
+/*! This method computes the current spinning body MRP attitude relative to the mount frame: sigma_PM
+
 */
-Eigen::Vector3d PrescribedRotation1DOF::computeSigma_FM() {
-    // Determine dcm_FF0 for the current spinning body attitude relative to the initial attitude
-    double dcm_FF0[3][3];
-    double prv_FF0_array[3];
-    double theta_FF0 = this->theta - this->thetaInit;
-    Eigen::Vector3d prv_FF0 = theta_FF0 * this->rotHat_M;
-    eigenVector3d2CArray(prv_FF0, prv_FF0_array);
-    PRV2C(prv_FF0_array, dcm_FF0);
+Eigen::Vector3d PrescribedRotation1DOF::computeSigma_PM() {
+    // Determine dcm_PP0 for the current spinning body attitude relative to the initial attitude
+    double dcm_PP0[3][3];
+    double prv_PP0_array[3];
+    double theta_PP0 = this->theta - this->thetaInit;
+    Eigen::Vector3d prv_PP0 = theta_PP0 * this->rotHat_M;
+    eigenVector3d2CArray(prv_PP0, prv_PP0_array);
+    PRV2C(prv_PP0_array, dcm_PP0);
 
-    // Determine dcm_F0M for the initial spinning body attitude relative to the mount frame
-    double dcm_F0M[3][3];
-    double prv_F0M_array[3];
-    Eigen::Vector3d prv_F0M = this->thetaInit * this->rotHat_M;
-    eigenVector3d2CArray(prv_F0M, prv_F0M_array);
-    PRV2C(prv_F0M_array, dcm_F0M);
+    // Determine dcm_P0M for the initial spinning body attitude relative to the mount frame
+    double dcm_P0M[3][3];
+    double prv_P0M_array[3];
+    Eigen::Vector3d prv_P0M = this->thetaInit * this->rotHat_M;
+    eigenVector3d2CArray(prv_P0M, prv_P0M_array);
+    PRV2C(prv_P0M_array, dcm_P0M);
 
-    // Determine dcm_FM for the current spinning body attitude relative to the mount frame
-    double dcm_FM[3][3];
-    m33MultM33(dcm_FF0, dcm_F0M, dcm_FM);
+    // Determine dcm_PM for the current spinning body attitude relative to the mount frame
+    double dcm_PM[3][3];
+    m33MultM33(dcm_PP0, dcm_P0M, dcm_PM);
 
-    // Compute the MRP sigma_FM representing the current spinning body attitude relative to the mount frame
-    double sigma_FM_array[3];
-    C2MRP(dcm_FM, sigma_FM_array);
-    return cArray2EigenVector3d(sigma_FM_array);
+    // Compute the MRP sigma_PM representing the current spinning body attitude relative to the mount frame
+    double sigma_PM_array[3];
+    C2MRP(dcm_PM, sigma_PM_array);
+    return cArray2EigenVector3d(sigma_PM_array);
 }
 
 /*! Setter method for the coast option bang duration.
- @return void
+
  @param bangDuration [s] Bang segment time duration
 */
 void PrescribedRotation1DOF::setCoastOptionBangDuration(const double bangDuration) {
@@ -703,7 +703,7 @@ void PrescribedRotation1DOF::setCoastOptionBangDuration(const double bangDuratio
 }
 
 /*! Setter method for the spinning body rotation axis.
- @return void
+
  @param rotHat_M Spinning body rotation axis (unit vector)
 */
 void PrescribedRotation1DOF::setRotHat_M(const Eigen::Vector3d &rotHat_M) {
@@ -711,7 +711,7 @@ void PrescribedRotation1DOF::setRotHat_M(const Eigen::Vector3d &rotHat_M) {
 }
 
 /*! Setter method for the duration the acceleration is smoothed until reaching the given maximum acceleration value.
- @return void
+
  @param smoothingDuration [s] Duration the acceleration is smoothed until reaching the given maximum acceleration value
 */
 void PrescribedRotation1DOF::setSmoothingDuration(const double smoothingDuration) {
@@ -719,7 +719,7 @@ void PrescribedRotation1DOF::setSmoothingDuration(const double smoothingDuration
 }
 
 /*! Setter method for the bang segment scalar angular acceleration.
- @return void
+
  @param thetaDDotMax [rad/s^2] Bang segment scalar angular acceleration
 */
 void PrescribedRotation1DOF::setThetaDDotMax(const double thetaDDotMax) {
@@ -727,7 +727,7 @@ void PrescribedRotation1DOF::setThetaDDotMax(const double thetaDDotMax) {
 }
 
 /*! Setter method for the initial spinning body angle.
- @return void
+
  @param thetaInit [rad] Initial spinning body angle
 */
 void PrescribedRotation1DOF::setThetaInit(const double thetaInit) {

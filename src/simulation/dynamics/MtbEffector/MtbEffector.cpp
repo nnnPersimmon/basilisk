@@ -36,7 +36,7 @@ MtbEffector::~MtbEffector()
 }
 
 /*! This method is used to reset the module and checks that required input messages are connect.
-    @return void
+
 */
 void MtbEffector::Reset(uint64_t CurrentSimNanos)
 {
@@ -52,7 +52,7 @@ void MtbEffector::Reset(uint64_t CurrentSimNanos)
     if (!this->mtbParamsInMsg.isLinked()) {
         bskLogger.bskLog(BSK_ERROR, "MtbEffector.mtbParamsInMsg was not linked.");
     }
-    
+
     /*
      * Zero the effector output forces and torques.
      */
@@ -64,7 +64,7 @@ void MtbEffector::Reset(uint64_t CurrentSimNanos)
 }
 
 /*! This is the main method that gets called every time the module is updated.  Provide an appropriate description.
-    @return void
+
 */
 void MtbEffector::UpdateState(uint64_t CurrentSimNanos)
 {
@@ -72,26 +72,26 @@ void MtbEffector::UpdateState(uint64_t CurrentSimNanos)
      * Write to the output message.
      */
     this->WriteOutputMessages(CurrentSimNanos);
-    
+
     return;
 }
 
 
 /*! This method is used to link the magnetic torque bar effector to the hub attitude.
- @return void
+
  */
 void MtbEffector::linkInStates(DynParamManager& states)
 {
     /*
      * Link the Body relative to Inertial frame modified modriguez parameter.
      */
-    this->hubSigma = states.getStateObject("hubSigma");
-    
+    this->hubSigma = states.getStateObject(this->stateNameOfSigma);
+
     return;
 }
 
 /*! This method computes the body torque contribution from all magnetic torque bars.
- @return void
+
 */
 void MtbEffector::computeForceTorque(double integTime, double timeStep)
 {
@@ -106,19 +106,19 @@ void MtbEffector::computeForceTorque(double integTime, double timeStep)
     Eigen::VectorXd muCmd_T;
     Eigen::Vector3d mtbTorque_B;
     Eigen::Vector3d magField_N;
-    
+
     /*
      * Assign input messages to private class attributes.
      */
     this->mtbCmdInMsgBuffer = this->mtbCmdInMsg();
     this->magInMsgBuffer = this->magInMsg();
     this->mtbConfigParams = this->mtbParamsInMsg();
-    
+
     /*
      * Zero out the external torque in the body frame.
      */
     this->torqueExternalPntB_B.setZero();
-    
+
 
     /*
      * Construct bTilde matrix.
@@ -138,7 +138,7 @@ void MtbEffector::computeForceTorque(double integTime, double timeStep)
     mSetZero(GtColMajor, 3, this->mtbConfigParams.numMTB);
     mTranspose(this->mtbConfigParams.GtMatrix_B, 3, this->mtbConfigParams.numMTB, GtColMajor);
     GtMatrix_B = cArray2EigenMatrixXd(GtColMajor, 3, this->mtbConfigParams.numMTB);
-    
+
     /* check if dipole commands are saturating the effector */
     for (int i=0; i<this->mtbConfigParams.numMTB; i++) {
         if (this->mtbCmdInMsgBuffer.mtbDipoleCmds[i] > this->mtbConfigParams.maxMtbDipoles[i]) {
@@ -156,7 +156,7 @@ void MtbEffector::computeForceTorque(double integTime, double timeStep)
 }
 
 /*! Write the magnetic torque bar output message.
-@return void
+
  */
 void MtbEffector::WriteOutputMessages(uint64_t CurrentClock)
 {
@@ -165,7 +165,7 @@ void MtbEffector::WriteOutputMessages(uint64_t CurrentClock)
      */
     MTBMsgPayload mtbOutMsgBuffer;
     mtbOutMsgBuffer = this->mtbOutMsg.zeroMsgPayload;
-    
+
     /*
      * Write output message
      */

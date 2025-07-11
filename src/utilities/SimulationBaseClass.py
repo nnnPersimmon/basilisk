@@ -17,12 +17,9 @@
 
 
 
-import array
-import inspect
 
 # Import some architectural stuff that we will probably always use
 import os
-import sys
 import warnings
 import xml.etree.ElementTree as ET
 from collections import OrderedDict
@@ -43,54 +40,93 @@ taskColor = '\u001b[33m'
 moduleColor = '\u001b[36m'
 endColor = '\u001b[0m'
 
+def methodizeCondition(conditionList):
+    """Methodize a condition list to a function"""
+    if conditionList is None or len(conditionList) == 0:
+        return lambda _: False
+
+    funcString = "def EVENT_check_condition(self):\n"
+    funcString += "    if("
+    for condValue in conditionList:
+        funcString += " " + condValue + " and"
+    funcString = funcString[:-3] + "):\n"
+    funcString += "        return True\n"
+    funcString += "    return False"
+
+    local_namespace = {}
+    exec(funcString, globals(), local_namespace)
+    return local_namespace["EVENT_check_condition"]
+
+
+def methodizeAction(actionList):
+    """Methodize an action list to a function"""
+    if actionList is None or len(actionList) == 0:
+        return lambda _: None
+
+    funcString = "def EVENT_operate_action(self):\n"
+    for actionValue in actionList:
+        funcString += "    " + actionValue + "\n"
+    funcString += "    return None"
+
+    local_namespace = {}
+    exec(funcString, globals(), local_namespace)
+    return local_namespace["EVENT_operate_action"]
+
+
 class EventHandlerClass:
     """Event Handler Class"""
-    def __init__(self, eventName, eventRate=int(1E9), eventActive=False,
-                 conditionList=[], actionList=[], terminal=False):
+
+    def __init__(
+        self,
+        eventName,
+        eventRate=int(1e9),
+        eventActive=False,
+        conditionFunction=None,
+        actionFunction=None,
+        conditionList=None,
+        actionList=None,
+        terminal=False,
+    ):
         self.eventName = eventName
         self.eventActive = eventActive
         self.eventRate = eventRate
-        self.conditionList = conditionList
-        self.actionList = actionList
         self.occurCounter = 0
         self.prevTime = -1
-        self.checkCall = None
-        self.operateCall = None
         self.terminal = terminal
 
-    def methodizeEvent(self):
-        if self.checkCall != None:
-            return
-        funcString = 'def EVENT_check_' + self.eventName + '(self):\n'
-        funcString += '    if('
-        for condValue in self.conditionList:
-            funcString += ' ' + condValue + ' and'
-        funcString = funcString[:-3] + '):\n'
-        funcString += '        return 1\n'
-        funcString += '    return 0'
+        self.conditionFunction = conditionFunction or (lambda _: False)
+        self.actionFunction = actionFunction or (lambda _: None)
 
-        exec (funcString)
-        self.checkCall = eval('EVENT_check_' + self.eventName)
-        funcString = 'def EVENT_operate_' + self.eventName + '(self):\n'
-        for actionValue in self.actionList:
-            funcString += '    '
-            funcString += actionValue + '\n'
-        funcString += '    return 0'
-        exec (funcString)
-        self.operateCall = eval('EVENT_operate_' + self.eventName)
+        if conditionList is not None:
+            if conditionFunction is not None:
+                raise ValueError(
+                    "Only specify a conditionFunction or a conditionList, not both"
+                )
+            else:
+                self.conditionFunction = methodizeCondition(conditionList)
+
+        if actionList is not None:
+            if actionFunction is not None:
+                raise ValueError(
+                    "Only specify an actionFunction or am actionList, not both."
+                )
+            else:
+                self.actionFunction = methodizeAction(actionList)
+
+
 
     def checkEvent(self, parentSim):
         nextTime = int(-1)
-        if self.eventActive == False:
+        if not self.eventActive:
             return(nextTime)
         nextTime = self.prevTime + self.eventRate - (self.prevTime%self.eventRate)
         if self.prevTime < 0 or (parentSim.TotalSim.CurrentNanos%self.eventRate == 0):
             nextTime = parentSim.TotalSim.CurrentNanos + self.eventRate
-            eventCount = self.checkCall(parentSim)
+            eventOccurred = self.conditionFunction(parentSim)
             self.prevTime = parentSim.TotalSim.CurrentNanos
-            if eventCount > 0:
+            if eventOccurred:
                 self.eventActive = False
-                self.operateCall(parentSim)
+                self.actionFunction(parentSim)
                 self.occurCounter += 1
                 if self.terminal:
                     parentSim.terminate = True
@@ -170,8 +206,6 @@ class SimBaseClass:
         self.StopTime = 0
         self.nextEventTime = 0
         self.terminate = False
-        self.oldSyntaxVariableLog = {}
-        self.allModels = []
         self.eventMap = {}
         self.simBasePath = os.path.dirname(os.path.realpath(__file__)) + '/../'
         self.dataStructIndex = self.simBasePath + '/xml/index.xml'
@@ -296,7 +330,6 @@ class SimBaseClass:
         for Task in self.TaskList:
             if Task.Name == TaskName:
                 Task.TaskData.AddNewObject(NewModel, ModelPriority)
-                self.allModels.append((NewModel, ModelData, Task) )
                 if ModelData is not None:
                     try:
                         ModelData.bskLogger = self.bskLogger
@@ -349,56 +382,6 @@ class SimBaseClass:
         self.TaskList.append(Task)
         return Task
 
-    # When this method is removed, remember to delete the 'oldSyntaxVariableLog' and
-    # 'allModels' attributes (as well as any mention of them) as they are no longer needed
-    @deprecated.deprecated("2024/09/06", 
-        "Use the 'logger' function or 'PythonVariableLogger' instead of 'AddVariableForLogging'."
-        " See 'http://hanspeterschaub.info/basilisk/Learn/bskPrinciples/bskPrinciples-6.html'"
-    )
-    def AddVariableForLogging(self, VarName: str, LogPeriod: int = 0, *_, **__):
-        """Generates a logger and adds it to the same task as the module
-        in `VarName`.
-
-        Args:
-            VarName (str): The variable to log in the format "<ModelTag>.<variable_name>"
-            LogPeriod (int, optional): The minimum time between logs. Defaults to 0.
-        """        
-        if "." not in VarName:
-            raise ValueError('The variable to log must be given in the format '
-                             '"<ModelTag>.<variable_name>"')
-        
-        modelTag = VarName.split('.')[0]
-
-        # Calling eval on a pre-compiled string is faster than
-        # eval-ing the string (by a large factor)
-        compiledExpr = compile(VarName, "<logged-variable>", "eval")
-
-        # Find the model object that corresponds to the given tag, as well as the 
-        # task where this model was added
-        modelOrConfig = task = None
-        for model, modelData, task in self.allModels:
-            if model.ModelTag == modelTag:
-                modelOrConfig = modelData or model
-                break
-
-        if task is None or modelOrConfig is None:
-            raise ValueError(f"Could not find model with tag {modelTag}")
-
-        # The callback logging function 'fun' simply evaluates the given
-        # expression. We pass a dictionary '{modelTag: modelOrConfig}'
-        # that allows the expression to substitute the modelTag by the
-        # actual model object
-        def fun(_): 
-            val = eval(compiledExpr, globals(), {modelTag: modelOrConfig})
-            val = np.array(val).squeeze()
-            return val
-
-        logger = PythonVariableLogger({"variable": fun}, LogPeriod)
-        logger.ModelTag = f"Logger:{VarName}"
-        self.AddModelToTask(task.Name, logger)
-
-        self.oldSyntaxVariableLog[VarName] = logger
-
     def ResetTask(self, taskName):
         for Task in self.TaskList:
             if Task.Name == taskName:
@@ -422,12 +405,6 @@ class SimBaseClass:
         Set the simulation stop time in nano-seconds.
         """
         self.StopTime = TimeStop
-
-    @deprecated.deprecated("2024/09/06", 
-        "Calling 'RecordLogVars' is deprecated and unnecessary."
-    )
-    def RecordLogVars(self):
-        pass
 
     def ExecuteSimulation(self):
         """
@@ -455,21 +432,6 @@ class SimBaseClass:
         self.terminate = False
         progressBar.markComplete()
         progressBar.close()
-
-    @deprecated.deprecated("2024/09/06", 
-        "Deprecated way to access logged variables."
-        " See 'http://hanspeterschaub.info/basilisk/Learn/bskPrinciples/bskPrinciples-6.html'"
-    )
-    def GetLogVariableData(self, LogName):
-        """
-        Pull the recorded module recorded variable.  The first column is the variable recording time in
-        nano-seconds, the additional column(s) are the message data columns.
-        """        
-        if LogName not in self.oldSyntaxVariableLog:
-            raise ValueError(f'"{LogName}" is not being logged. Check the spelling.')
-        
-        logger = self.oldSyntaxVariableLog[LogName]
-        return np.column_stack([logger.times(), logger.variable])
 
     def disableTask(self, TaskName):
         """
@@ -501,22 +463,55 @@ class SimBaseClass:
                                                      newStruct})
         self.indexParsed = True
 
-    def createNewEvent(self, eventName, eventRate=int(1E9), eventActive=False,
-                       conditionList=[], actionList=[], terminal=False):
+    def createNewEvent(
+        self,
+        eventName,
+        eventRate=int(1e9),
+        eventActive=False,
+        conditionList=None,
+        actionList=None,
+        terminal=False,
+        conditionFunction=None,
+        actionFunction=None,
+    ):
         """
         Create an event sequence that contains a series of tasks to be executed.
+
+        Args:
+            eventName (str): Name of the event
+            eventRate (int): Rate at which the event is checked in nanoseconds
+            eventActive (bool): Whether the event is active or not
+            conditionList (list): List of conditions to check for the event,
+                expressed as strings of code to execute within the class.
+            actionList (list): List of actions to perform when the event occurs,
+                expressed as strings of code to execute within the class.
+            terminal (bool): Whether this event should terminate the simulation when it occurs
+            conditionFunction (function): Function to check if the event should occur. The
+                function should take the simulation object as an argument and return a boolean.
+                This is the preferred manner to set conditions as it enables the use of arbitrary
+                packages and objects in events and allows for event code to be parsed by IDE tools.
+            actionFunction (function): Function to execute when the event occurs. The
+                function should take the simulation object as an argument.
+                This is the preferred manner to set conditions as it enables the use of arbitrary
+                packages and objects in events and allows for event code to be parsed by IDE tools.
         """
         if (eventName in list(self.eventMap.keys())):
+            warnings.warn(f"Skipping event creation since {eventName} already exists.")
             return
-        newEvent = EventHandlerClass(eventName, eventRate, eventActive,
-                                     conditionList, actionList, terminal)
-        self.eventMap.update({eventName: newEvent})
+        newEvent = EventHandlerClass(
+            eventName,
+            eventRate,
+            eventActive,
+            conditionFunction=conditionFunction,
+            actionFunction=actionFunction,
+            conditionList=conditionList,
+            actionList=actionList,
+            terminal=terminal,
+        )
+        self.eventMap[eventName] = newEvent
 
     def initializeEventChecks(self):
-        self.eventList = []
-        for key, value in self.eventMap.items():
-            value.methodizeEvent()
-            self.eventList.append(value)
+        self.eventList = list(self.eventMap.values())
         self.nextEventTime = 0
 
     def checkEvents(self):
@@ -550,105 +545,6 @@ class SimBaseClass:
                 else:
                     self.eventMap[eventName].eventActive = activityCommand
 
-    def setModelDataWrap(self, modelData):
-        """
-        Takes a module and returns an object that provides access to said module's SelfInit, Update, and Reset
-        methods.
-
-        Takes the module instance, collects all SwigPyObjects generated from the .i file (SelfInit,
-        Update and Reset), and attaches it to a alg_contain model instance so the modules standard functions can be
-        run at the python level.
-
-        :param modelData: model to gather functions for
-        :return: An alg_contain model that provides access to the original model's core functions
-        """
-        deprecationId = f"{SimBaseClass.setModelDataWrap.__module__}.{SimBaseClass.setModelDataWrap.__qualname__}"
-        removalDate = "2024/07/30"
-
-        if hasattr(modelData, "createWrapper"):
-            deprecated.deprecationWarn(
-                deprecationId,
-                removalDate,
-                "C modules no longer require having separate 'Config' and 'Wrap' objects. "
-                "Treat C modules like C++ modules. For example, instead of:\n"
-                "\tinertial3DConfig = inertial3D.inertial3DConfig()\n"
-                "\tinertial3DWrap = scSim.setModelDataWrap(inertial3DConfig)\n"
-                "\tinertial3DWrap.ModelTag = 'inertial3D'\n"
-                "\tscSim.AddModelToTask(simTaskName, inertial3DWrap, inertial3DConfig, 10)\n"
-                "Do:\n"
-                "\tinertial3D = inertial3D.inertial3D()\n"
-                "\tinertial3D.ModelTag = 'inertial3D'\n"
-                "\tscSim.AddModelToTask(simTaskName, inertial3D, 10)\n"
-            )
-            return modelData.createWrapper()
-    
-        deprecated.deprecationWarn(
-            deprecationId, 
-            removalDate, 
-            "This C module has not been converted yet to the new way of defining C "
-            "modules, which makes using them more intuitive. Take the time to see how "
-            "the new C module '.i' file looks by checking out a default Basilisk module"
-            " and adapt your module to use a similar format."
-        )
-
-        algDict = {}
-        STR_SELFINIT = 'SelfInit'
-        STR_UPDATE = 'Update'
-        STR_RESET = 'Reset'
-
-        # SwigPyObject's Parsing:
-        # Collect all the SwigPyObjects present in the list. Only the methods SelfInit, Update and Restart
-        # are wrapped by Swig in the .i files. Therefore they are the only SwigPyObjects
-        def parseDirList(dirList):
-            algNames = []
-            for methodName in dirList:
-                methodObject = eval('sys.modules["' + module + '"].' + methodName)
-                if type(methodObject).__name__ == "SwigPyObject":
-                    algNames.append(methodName)
-            return algNames
-
-        # Check the type of the algorithm, i.e. SelfInit, Update or Reset,
-        # and return the key to create a new dictionary D[str_method] = method
-        def checkMethodType(methodName):
-            if methodName[0:len(STR_SELFINIT)] == STR_SELFINIT:
-                return STR_SELFINIT
-            elif methodName[0:len(STR_UPDATE)] == STR_UPDATE:
-                return STR_UPDATE
-            elif methodName[0:len(STR_RESET)] == STR_RESET:
-                return STR_RESET
-            else:
-                raise ValueError('Cannot recognize the method'
-                                 '(I only assess SelfInit, Update and Reset methods). '
-                                 'Parse better.')
-
-        module = modelData.__module__
-        sysMod = sys.modules[module]
-        dirList = dir(sysMod)
-        algList = parseDirList(dirList)
-
-        # if the package has different levels we need to access the correct level of the package
-        currMod = __import__(module, globals(), locals(), [], 0)
-
-        moduleString = "currMod."
-        moduleNames = module.split(".")
-        if len(moduleNames) > 1:
-            moduleString += ".".join(moduleNames[1:]) + "."
-
-        for alg in algList:
-            key = checkMethodType(alg)
-            algDict[key] = alg
-
-        update = eval(moduleString + algDict[STR_UPDATE])
-        selfInit = eval(moduleString + algDict[STR_SELFINIT])
-        try:
-            resetArg = algDict[STR_RESET]
-            reset = eval(moduleString + resetArg)
-            modelWrap = alg_contain.AlgContain(modelData, update, selfInit, reset)
-        except:
-            modelWrap = alg_contain.AlgContain(modelData, update, selfInit)
-        return modelWrap
-
-
 def SetCArray(InputList, VarType, ArrayPointer):
     if(isinstance(ArrayPointer, (list, tuple))):
         raise TypeError('Cannot set a C array if it is actually a python list.  Just assign the variable to the list directly.')
@@ -657,7 +553,6 @@ def SetCArray(InputList, VarType, ArrayPointer):
     for CurrElem in InputList:
         exec (CmdString)
         CurrIndex += 1
-
 
 def getCArray(varType, arrayPointer, arraySize):
     CmdString = 'outputList.append(sim_model.' + varType + 'Array_getitem(arrayPointer, currIndex))'

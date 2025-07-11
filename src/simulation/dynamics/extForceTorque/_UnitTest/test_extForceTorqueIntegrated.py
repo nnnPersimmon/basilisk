@@ -36,7 +36,13 @@ from Basilisk.utilities import unitTestSupport  # general support file with comm
                                       ])
 def test_ForceBodyAndTorqueAllTest(show_plots, function):
     """Module Unit Test"""
-    [testResults, testMessage] = eval(function + '()')
+    testFunction = globals().get(function)
+
+    if testFunction is None:
+        raise ValueError(f"Function '{function}' not found in global scope")
+
+    [testResults, testMessage] = testFunction()
+
     assert testResults < 1, testMessage
 
 
@@ -92,8 +98,8 @@ def extForceBodyAndTorque():
     scObject.addDynamicEffector(extFTObject)
     unitTestSim.AddModelToTask(unitTaskName, extFTObject)
 
-    posRef = scObject.dynManager.getStateObject("hubPosition")
-    sigmaRef = scObject.dynManager.getStateObject("hubSigma")
+    posRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubPosition)
+    sigmaRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubSigma)
 
     stopTime = 60.0*10.0
     unitTestSim.ConfigureStopTime(macros.sec2nano(stopTime))
@@ -185,8 +191,8 @@ def extForceInertialAndTorque():
     scObject.addDynamicEffector(extFTObject)
     unitTestSim.AddModelToTask(unitTaskName, extFTObject)
 
-    posRef = scObject.dynManager.getStateObject("hubPosition")
-    sigmaRef = scObject.dynManager.getStateObject("hubSigma")
+    posRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubPosition)
+    sigmaRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubSigma)
 
     stopTime = 60.0*10.0
     unitTestSim.ConfigureStopTime(macros.sec2nano(stopTime))

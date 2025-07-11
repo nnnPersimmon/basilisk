@@ -27,7 +27,7 @@
 
 /*!
     This method initializes the output messages for this module.
- @return void
+
  @param configData The configuration data associated with this module
  @param moduleID The module identifier
  */
@@ -41,7 +41,7 @@ void SelfInit_locationPointing(locationPointingConfig  *configData, int64_t modu
 /*! This method performs a complete reset of the module.  Local module variables that retain
     time varying states between function calls are reset to their default values.
     Check if required input messages are connected.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime [ns] time the method is called
  @param moduleID The module identifier
@@ -93,7 +93,7 @@ void Reset_locationPointing(locationPointingConfig *configData, uint64_t callTim
 
 
 /*! This method takes the estimated body states and position relative to the ground to compute the current attitude/attitude rate errors and pass them to control.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The module identifier
@@ -182,7 +182,7 @@ void Update_locationPointing(locationPointingConfig *configData, uint64_t callTi
     /* use sigma_BR to compute d(sigma_BR)/dt if at least two data points */
     if (configData->init < 1) {
         // module update time
-        time_diff = (callTime - configData->time_old)*NANO2SEC;
+        time_diff = diffNanoToSec(callTime, configData->time_old);
 
         // calculate d(sigma_BR)/dt
         v3Subtract(sigma_BR, configData->sigma_BR_old, difference);

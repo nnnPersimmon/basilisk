@@ -62,7 +62,7 @@ void SmallBodyNavUKF::SelfInit(){
 }
 
 /*! This method is used to reset the module, check that required input messages are connect and compute weigths.
-    @return void
+
 */
 void SmallBodyNavUKF::Reset(uint64_t CurrentSimNanos)
 {
@@ -77,7 +77,7 @@ void SmallBodyNavUKF::Reset(uint64_t CurrentSimNanos)
     /* compute UT weights to be used in the UT */
     this->wm_sigma(0) = this->kappa / (this->kappa + this->numStates);
     this->wc_sigma(0) = this->wm_sigma(0) + 1 - pow(this->alpha,2) + this->beta;
-    for (int i = 0; i < this->numStates; i++) {
+    for (uint64_t i = 0; i < this->numStates; i++) {
         /* Assign weigths */
         this->wm_sigma(i+1) = 1 / (2*(this->numStates + this->kappa));
         this->wm_sigma(numStates+i+1) = this->wm_sigma(i+1);
@@ -87,7 +87,7 @@ void SmallBodyNavUKF::Reset(uint64_t CurrentSimNanos)
 }
 
 /*! This method is used to read the input messages.
-    @return void
+
 */
 void SmallBodyNavUKF::readMessages(){
     /* Read in the input messages */
@@ -97,7 +97,7 @@ void SmallBodyNavUKF::readMessages(){
 
 /*! This method does the UT to the initial distribution to compute the a-priori state
     @param CurrentSimNanos
-    @return void
+
 */
 void SmallBodyNavUKF::processUT(uint64_t CurrentSimNanos){
     /* Read angular velocity of the small body fixed frame */
@@ -119,7 +119,7 @@ void SmallBodyNavUKF::processUT(uint64_t CurrentSimNanos){
     X_sigma_k.col(0) = this->x_hat_k;
 
     /* Loop to generate remaining sigma points */
-    for (int i = 0; i < this->numStates; i++) {
+    for (uint64_t i = 0; i < this->numStates; i++) {
         /* Generate sigma points */
         X_sigma_k.col(i+1) = this->x_hat_k
             - sqrt(this->numStates + this->kappa) * Psqrt_k.col(i);
@@ -136,7 +136,7 @@ void SmallBodyNavUKF::processUT(uint64_t CurrentSimNanos){
     x_sigma_k.setZero(this->numStates);
     x_sigma_dot_k.setZero(this->numStates);
     this->x_hat_k1_.setZero(this->numStates);
-    for (int i = 0; i < this->numSigmas; i++) {
+    for (uint64_t i = 0; i < this->numSigmas; i++) {
         /* Extract sigma point */
         x_sigma_k = X_sigma_k.col(i);
 
@@ -161,7 +161,7 @@ void SmallBodyNavUKF::processUT(uint64_t CurrentSimNanos){
     Eigen::VectorXd x_sigma_dev_k1_;
     x_sigma_dev_k1_.setZero(this->numStates);
     this->P_k1_.setZero(this->numStates, this->numStates);
-    for (int i = 0; i < numSigmas; i++) {
+    for (uint64_t i = 0; i < numSigmas; i++) {
         /* Compute deviation of sigma from the mean */
         x_sigma_dev_k1_ = this->X_sigma_k1_.col(i) - this->x_hat_k1_;
 
@@ -174,7 +174,7 @@ void SmallBodyNavUKF::processUT(uint64_t CurrentSimNanos){
 }
 
 /*! This method does the UT to the a-priori state to compute the a-priori measurements
-    @return void
+
 */
 void SmallBodyNavUKF::measurementUT(){
     /* Compute square root matrix of covariance */
@@ -185,7 +185,7 @@ void SmallBodyNavUKF::measurementUT(){
     this->X_sigma_k1_.col(0) = this->x_hat_k1_;
 
     /* Loop to generate remaining sigma points */
-    for (int i = 0; i < this->numStates; i++) {
+    for (uint64_t i = 0; i < this->numStates; i++) {
         /* Generate sigma points */
         this->X_sigma_k1_.col(i+1) = this->x_hat_k1_
             - sqrt(this->numStates + this->kappa) * Psqrt_k1_.col(i);
@@ -197,7 +197,7 @@ void SmallBodyNavUKF::measurementUT(){
     Eigen::VectorXd x_sigma_k1_;
     x_sigma_k1_.setZero(this->numStates);
     this->y_hat_k1_.setZero(this->numMeas);
-    for (int i = 0; i < this->numSigmas; i++) {
+    for (uint64_t i = 0; i < this->numSigmas; i++) {
         /* Extract sigma point */
         x_sigma_k1_ = this->X_sigma_k1_.col(i);
 
@@ -215,7 +215,7 @@ void SmallBodyNavUKF::measurementUT(){
     y_sigma_dev_k1_.setZero(this->numStates);
     this->R_k1_.setZero(this->numMeas, this->numMeas);
     this->H.setZero(this->numStates, this->numMeas);
-    for (int i = 0; i < this->numSigmas; i++) {
+    for (uint64_t i = 0; i < this->numSigmas; i++) {
         /* Compute deviation of measurement sigma from the mean */
         x_sigma_dev_k1_ = this->X_sigma_k1_.col(i) - this->x_hat_k1_;
         y_sigma_dev_k1_ = this->Y_sigma_k1_.col(i) - this->y_hat_k1_;
@@ -235,7 +235,7 @@ void SmallBodyNavUKF::measurementUT(){
 }
 
 /*! This method collects the measurements and updates the estimation
-    @return void
+
 */
 void SmallBodyNavUKF::kalmanUpdate(){
     /* Read attitude MRP of the small body fixed frame w.r.t. inertial */
@@ -265,7 +265,7 @@ void SmallBodyNavUKF::kalmanUpdate(){
 }
 
 /*! This method writes the output messages
-    @return void
+
 */
 void SmallBodyNavUKF::writeMessages(uint64_t CurrentSimNanos){
     /* Create output msg buffers */
@@ -286,7 +286,7 @@ void SmallBodyNavUKF::writeMessages(uint64_t CurrentSimNanos){
 }
 
 /*! This is the main method that gets called every time the module is updated.
-    @return void
+
 */
 void SmallBodyNavUKF::UpdateState(uint64_t CurrentSimNanos)
 {

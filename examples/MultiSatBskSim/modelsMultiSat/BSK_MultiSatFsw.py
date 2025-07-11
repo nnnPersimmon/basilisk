@@ -20,10 +20,16 @@ import itertools
 
 import numpy as np
 from Basilisk.architecture import messaging
-from Basilisk.fswAlgorithms import (inertial3D, locationPointing, attTrackingError, mrpFeedback,
-                                    rwMotorTorque, spacecraftReconfig)
-from Basilisk.utilities import (macros as mc, fswSetupThrusters)
-from Basilisk.utilities import deprecated
+from Basilisk.fswAlgorithms import (
+    attTrackingError,
+    inertial3D,
+    locationPointing,
+    mrpFeedback,
+    rwMotorTorque,
+    spacecraftReconfig,
+)
+from Basilisk.utilities import deprecated, fswSetupThrusters
+from Basilisk.utilities import macros as mc
 
 
 class BSKFswModels:
@@ -110,51 +116,105 @@ class BSKFswModels:
 
         # The standby event should not be active while the station keeping mode is also active. Standby mode disables
         # attitude control and therefore the attitude cannot be corrected for orbital correction burns.
-        SimBase.createNewEvent("initiateStandby_" + str(spacecraftIndex), self.processTasksTimeStep, True,
-                               ["self.FSWModels[" + str(spacecraftIndex) + "].modeRequest == 'standby'"],
-                               ["self.fswProc[" + str(spacecraftIndex) + "].disableAllTasks()",
-                                "self.FSWModels[" + str(spacecraftIndex) + "].zeroGateWayMsgs()",
-                                "self.setAllButCurrentEventActivity('initiateStandby_" + str(spacecraftIndex) +
-                                "', True, useIndex=True)"])
+        SimBase.createNewEvent(
+            "initiateStandby_" + str(spacecraftIndex),
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: (
+                self.FSWModels[spacecraftIndex].modeRequest == "standby"
+            ),
+            actionFunction=lambda self: (
+                self.fswProc[spacecraftIndex].disableAllTasks(),
+                self.FSWModels[spacecraftIndex].zeroGateWayMsgs(),
+                self.setAllButCurrentEventActivity(
+                    f"initiateStandby_{spacecraftIndex}", True, useIndex=True
+                ),
+            ),
+        )
 
-        SimBase.createNewEvent("initiateInertialPointing_" + str(spacecraftIndex), self.processTasksTimeStep, True,
-                               ["self.FSWModels[" + str(spacecraftIndex) + "].modeRequest == 'inertialPointing'"],
-                               ["self.fswProc[" + str(spacecraftIndex) + "].disableAllTasks()",
-                                "self.FSWModels[" + str(spacecraftIndex) + "].zeroGateWayMsgs()",
-                                "self.enableTask('inertialPointTask" + str(spacecraftIndex) + "')",
-                                "self.enableTask('trackingErrorTask" + str(spacecraftIndex) + "')",
-                                "self.enableTask('mrpFeedbackRWsTask" + str(spacecraftIndex) + "')",
-                                "self.setAllButCurrentEventActivity('initiateInertialPointing_" + str(spacecraftIndex) +
-                                "', True, useIndex=True)"])
+        SimBase.createNewEvent(
+            "initiateInertialPointing_" + str(spacecraftIndex),
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: (
+                self.FSWModels[spacecraftIndex].modeRequest == "inertialPointing"
+            ),
+            actionFunction=lambda self: (
+                self.fswProc[spacecraftIndex].disableAllTasks(),
+                self.FSWModels[spacecraftIndex].zeroGateWayMsgs(),
+                self.enableTask(f"inertialPointTask{spacecraftIndex}"),
+                self.enableTask(f"trackingErrorTask{spacecraftIndex}"),
+                self.enableTask(f"mrpFeedbackRWsTask{spacecraftIndex}"),
+                self.setAllButCurrentEventActivity(
+                    f"initiateInertialPointing_{spacecraftIndex}", True, useIndex=True
+                ),
+            ),
+        )
 
-        SimBase.createNewEvent("initiateSunPointing_" + str(spacecraftIndex), self.processTasksTimeStep, True,
-                               ["self.FSWModels[" + str(spacecraftIndex) + "].modeRequest == 'sunPointing'"],
-                               ["self.fswProc[" + str(spacecraftIndex) + "].disableAllTasks()",
-                                "self.FSWModels[" + str(spacecraftIndex) + "].zeroGateWayMsgs()",
-                                "self.enableTask('sunPointTask" + str(spacecraftIndex) + "')",
-                                "self.enableTask('trackingErrorTask" + str(spacecraftIndex) + "')",
-                                "self.enableTask('mrpFeedbackRWsTask" + str(spacecraftIndex) + "')",
-                                "self.setAllButCurrentEventActivity('initiateSunPointing_" + str(spacecraftIndex) +
-                                "', True, useIndex=True)"])
+        SimBase.createNewEvent(
+            "initiateSunPointing_" + str(spacecraftIndex),
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: (
+                self.FSWModels[spacecraftIndex].modeRequest == "sunPointing"
+            ),
+            actionFunction=lambda self: (
+                self.fswProc[spacecraftIndex].disableAllTasks(),
+                self.FSWModels[spacecraftIndex].zeroGateWayMsgs(),
+                self.enableTask(f"sunPointTask{spacecraftIndex}"),
+                self.enableTask(f"trackingErrorTask{spacecraftIndex}"),
+                self.enableTask(f"mrpFeedbackRWsTask{spacecraftIndex}"),
+                self.setAllButCurrentEventActivity(
+                    f"initiateSunPointing_{spacecraftIndex}", True, useIndex=True
+                ),
+            ),
+        )
 
-        SimBase.createNewEvent("initiateLocationPointing_" + str(spacecraftIndex), self.processTasksTimeStep, True,
-                               ["self.FSWModels[" + str(spacecraftIndex) + "].modeRequest == 'locationPointing'"],
-                               ["self.fswProc[" + str(spacecraftIndex) + "].disableAllTasks()",
-                                "self.FSWModels[" + str(spacecraftIndex) + "].zeroGateWayMsgs()",
-                                "self.enableTask('locPointTask" + str(spacecraftIndex) + "')",
-                                "self.enableTask('trackingErrorTask" + str(spacecraftIndex) + "')",
-                                "self.enableTask('mrpFeedbackRWsTask" + str(spacecraftIndex) + "')",
-                                "self.setAllButCurrentEventActivity('initiateLocationPointing_" + str(spacecraftIndex) +
-                                "', True, useIndex=True)"])
+        SimBase.createNewEvent(
+            "initiateLocationPointing_" + str(spacecraftIndex),
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: (
+                self.FSWModels[spacecraftIndex].modeRequest == "locationPointing"
+            ),
+            actionFunction=lambda self: (
+                self.fswProc[spacecraftIndex].disableAllTasks(),
+                self.FSWModels[spacecraftIndex].zeroGateWayMsgs(),
+                self.enableTask(f"locPointTask{spacecraftIndex}"),
+                self.enableTask(f"trackingErrorTask{spacecraftIndex}"),
+                self.enableTask(f"mrpFeedbackRWsTask{spacecraftIndex}"),
+                self.setAllButCurrentEventActivity(
+                    f"initiateLocationPointing_{spacecraftIndex}", True, useIndex=True
+                ),
+            ),
+        )
 
-        SimBase.createNewEvent("initiateStationKeeping_" + str(spacecraftIndex), self.processTasksTimeStep, True,
-                               ["self.FSWModels[" + str(spacecraftIndex) + "].stationKeeping == 'ON'"],
-                               ["self.enableTask('spacecraftReconfigTask" + str(spacecraftIndex) + "')",
-                                "self.setEventActivity('stopStationKeeping_" + str(spacecraftIndex) + "', True)"])
-        SimBase.createNewEvent("stopStationKeeping_" + str(spacecraftIndex), self.processTasksTimeStep, True,
-                               ["self.FSWModels[" + str(spacecraftIndex) + "].stationKeeping == 'OFF'"],
-                               ["self.disableTask('spacecraftReconfigTask" + str(spacecraftIndex) + "')",
-                                "self.setEventActivity('initiateStationKeeping_" + str(spacecraftIndex) + "', True)"])
+        SimBase.createNewEvent(
+            "initiateStationKeeping_" + str(spacecraftIndex),
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: (
+                self.FSWModels[spacecraftIndex].stationKeeping == "ON"
+            ),
+            actionFunction=lambda self: (
+                self.enableTask(f"spacecraftReconfigTask{spacecraftIndex}"),
+                self.setEventActivity(f"stopStationKeeping_{spacecraftIndex}", True),
+            ),
+        )
+        SimBase.createNewEvent(
+            "stopStationKeeping_" + str(spacecraftIndex),
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: (
+                self.FSWModels[spacecraftIndex].stationKeeping == "OFF"
+            ),
+            actionFunction=lambda self: (
+                self.disableTask(f"spacecraftReconfigTask{spacecraftIndex}"),
+                self.setEventActivity(
+                    f"initiateStationKeeping_{spacecraftIndex}", True
+                ),
+            ),
+        )
 
     # ------------------------------------------------------------------------------------------- #
     # These are module-initialization methods
@@ -292,139 +352,13 @@ class BSKFswModels:
             self.spacecraftReconfig.onTimeOutMsg)
 
     def zeroGateWayMsgs(self):
-        """Zero all the FSW gateway message payloads"""
+        """Zero all FSW gateway message payloads"""
         self.attRefMsg.write(messaging.AttRefMsgPayload())
         self.attGuidMsg.write(messaging.AttGuidMsgPayload())
 
-    @property
-    def inertial3DPointData(self):
-        return self.inertial3DPoint
+        # Zero all actuator commands
+        self.rwMotorTorque.rwMotorTorqueOutMsg.write(messaging.ArrayMotorTorqueMsgPayload())
+        self.spacecraftReconfig.onTimeOutMsg.write(messaging.THRArrayOnTimeCmdMsgPayload())
 
-    inertial3DPointData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to inertial3DPointData as inertial3DPoint",
-        inertial3DPointData)
-
-    @property
-    def inertial3DPointWrap(self):
-        return self.inertial3DPoint
-
-    inertial3DPointWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to inertial3DPointWrap as inertial3DPoint",
-        inertial3DPointWrap)
-
-
-    @property
-    def sunPointData(self):
-        return self.sunPoint
-
-    sunPointData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to sunPointData as sunPoint",
-        sunPointData)
-
-    @property
-    def sunPointWrap(self):
-        return self.sunPoint
-
-    sunPointWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to sunPointWrap as sunPoint",
-        sunPointWrap)
-
-
-    @property
-    def locPointData(self):
-        return self.locPoint
-
-    locPointData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to locPointData as locPoint",
-        locPointData)
-
-    @property
-    def locPointWrap(self):
-        return self.locPoint
-
-    locPointWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to locPointWrap as locPoint",
-        locPointWrap)
-
-
-    @property
-    def spacecraftReconfigData(self):
-        return self.spacecraftReconfig
-
-    spacecraftReconfigData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to spacecraftReconfigData as spacecraftReconfig",
-        spacecraftReconfigData)
-
-    @property
-    def spacecraftReconfigWrap(self):
-        return self.spacecraftReconfig
-
-    spacecraftReconfigWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to spacecraftReconfigWrap as spacecraftReconfig",
-        spacecraftReconfigWrap)
-
-
-    @property
-    def trackingErrorData(self):
-        return self.trackingError
-
-    trackingErrorData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to trackingErrorData as trackingError",
-        trackingErrorData)
-
-    @property
-    def trackingErrorWrap(self):
-        return self.trackingError
-
-    trackingErrorWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to trackingErrorWrap as trackingError",
-        trackingErrorWrap)
-
-
-    @property
-    def mrpFeedbackRWsData(self):
-        return self.mrpFeedbackRWs
-
-    mrpFeedbackRWsData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackRWsData as mrpFeedbackRWs",
-        mrpFeedbackRWsData)
-
-    @property
-    def mrpFeedbackRWsWrap(self):
-        return self.mrpFeedbackRWs
-
-    mrpFeedbackRWsWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackRWsWrap as mrpFeedbackRWs",
-        mrpFeedbackRWsWrap)
-
-
-    @property
-    def rwMotorTorqueData(self):
-        return self.rwMotorTorque
-
-    rwMotorTorqueData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rwMotorTorqueData as rwMotorTorque",
-        rwMotorTorqueData)
-
-    @property
-    def rwMotorTorqueWrap(self):
-        return self.rwMotorTorque
-
-    rwMotorTorqueWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rwMotorTorqueWrap as rwMotorTorque",
-        rwMotorTorqueWrap)
-    
+        # If CMGs are present in the configuration:
+        # self.cmgCmdMsg.write(messaging.CMGCmdMsgPayload())
