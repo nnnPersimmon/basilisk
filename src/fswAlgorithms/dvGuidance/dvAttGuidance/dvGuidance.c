@@ -25,7 +25,7 @@
 /*! This method initializes the configData for the nominal delta-V maneuver guidance.
  It checks to ensure that the inputs are sane and then creates the
  output message
- @return void
+
  @param configData The configuration data associated with the delta-V maneuver guidance
  @param moduleID The unique module identifier
  */
@@ -36,7 +36,7 @@ void SelfInit_dvGuidance(dvGuidanceConfig *configData, int64_t moduleID)
 
 
 /*! @brief This resets the module.
- @return void
+
  @param configData The configuration data associated with this module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The unique module identifier
@@ -54,7 +54,7 @@ void Reset_dvGuidance(dvGuidanceConfig *configData, uint64_t callTime,
 /*! This method takes its own internal variables and creates an output attitude
     command to use for burn execution.  It also flags whether the burn should
     be happening or not.
- @return void
+
  @param configData The configuration data associated with the delta-V maneuver guidance
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The unique module identifier
@@ -86,8 +86,8 @@ void Update_dvGuidance(dvGuidanceConfig *configData, uint64_t callTime,
     v3Cross(dcm_BubN[0], dcm_BubN[1], dcm_BubN[2]);
     v3Normalize(dcm_BubN[2], dcm_BubN[2]);
 
-    /*! - evaluate the time since the burn start time */
-    burnTime = ((int64_t) callTime - (int64_t) localBurnData.burnStartTime)*NANO2SEC;
+    /*! - evaluate the time since the burn start time, negative burn time is allowed */
+    burnTime = diffNanoToSec(callTime, localBurnData.burnStartTime);
 
     /*! - evaluate the DCM from inertial to the current Burn frame.
      The current frame differs from the base burn frame via a constant 3-axis rotation */

@@ -52,13 +52,11 @@ VSCMGStateEffector::~VSCMGStateEffector()
 
 void VSCMGStateEffector::linkInStates(DynParamManager& statesIn)
 {
-	//! - Get access to the hubs sigma, omegaBN_B and velocity needed for dynamic coupling
-	this->hubSigma = statesIn.getStateObject("hubSigma");
-	this->hubOmega = statesIn.getStateObject("hubOmega");
-	this->hubVelocity = statesIn.getStateObject("hubVelocity");
-    this->g_N = statesIn.getPropertyReference("g_N");
+    this->hubOmega = statesIn.getStateObject(this->stateNameOfOmega);
+    //! - Get access to the hub states
+    this->g_N = statesIn.getPropertyReference(this->propName_vehicleGravity);
 
-	return;
+    return;
 }
 
 void VSCMGStateEffector::registerStates(DynParamManager& states)
@@ -284,13 +282,13 @@ void VSCMGStateEffector::updateContributions(double integTime, BackSubMatrices &
 
 
     //! - Find dcm_BN
-    sigmaBNLocal = (Eigen::Vector3d )this->hubSigma->getState();
+    sigmaBNLocal = (Eigen::Vector3d ) sigma_BN;
     dcm_NB = sigmaBNLocal.toRotationMatrix();
     dcm_BN = dcm_NB.transpose();
     //! - Map gravity to body frame
     g_B = dcm_BN*gLocal_N;
 
-	omegaLoc_BN_B = this->hubOmega->getState();
+	omegaLoc_BN_B = omega_BN_B;
 
     std::vector<VSCMGConfigMsgPayload>::iterator it;
 	for(it=VSCMGData.begin(); it!=VSCMGData.end(); it++)
@@ -412,10 +410,10 @@ void VSCMGStateEffector::computeDerivatives(double integTime, Eigen::Vector3d rD
 	std::vector<VSCMGConfigMsgPayload>::iterator it;
 
 	//! Grab necessarry values from manager
-	omegaDotBNLoc_B = this->hubOmega->getStateDeriv();
+	omegaDotBNLoc_B = omegaDot_BN_B;
 	omegaLoc_BN_B = this->hubOmega->getState();
-	rDDotBNLoc_N = this->hubVelocity->getStateDeriv();
-	sigmaBNLocal = (Eigen::Vector3d )this->hubSigma->getState();
+	rDDotBNLoc_N = rDDot_BN_N;
+	sigmaBNLocal = (Eigen::Vector3d ) sigma_BN;
 	dcm_NB = sigmaBNLocal.toRotationMatrix();
 	dcm_BN = dcm_NB.transpose();
 	rDDotBNLoc_B = dcm_BN*rDDotBNLoc_N;
@@ -485,7 +483,7 @@ void VSCMGStateEffector::updateEnergyMomContributions(double integTime, Eigen::V
 
 
 /*! Reset the module to origina configuration values.
- @return void
+
  */
 void VSCMGStateEffector::Reset(uint64_t CurrenSimNanos)
 {
@@ -537,7 +535,7 @@ void VSCMGStateEffector::Reset(uint64_t CurrenSimNanos)
 /*! This method is here to write the output message structure into the specified
  message.
  @param CurrentClock The current time used for time-stamping the message
- @return void
+
  */
 void VSCMGStateEffector::WriteOutputMessages(uint64_t CurrentClock)
 {
@@ -589,7 +587,7 @@ void VSCMGStateEffector::WriteOutputMessages(uint64_t CurrentClock)
 
 /*! This method is used to read the incoming command message and set the
  associated command structure for operating the VSCMGs.
- @return void
+
  */
 void VSCMGStateEffector::ReadInputs()
 {
@@ -634,7 +632,7 @@ void VSCMGStateEffector::ReadInputs()
 /*! This method is used to read the new commands vector and set the VSCMG
  torque commands appropriately.  It assumes that the ReadInputs method has
  already been run successfully.
- @return void
+
  @param CurrentTime The current simulation time converted to a double
  */
 void VSCMGStateEffector::ConfigureVSCMGRequests(double CurrentTime)
@@ -745,7 +743,7 @@ void VSCMGStateEffector::ConfigureVSCMGRequests(double CurrentTime)
  configuration data based on that incoming command set.  Note that the main
  dynamical method (ComputeDynamics()) is not called here and is intended to be
  called from the dynamics plant in the system
- @return void
+
  @param CurrentSimNanos The current simulation time in nanoseconds
  */
 void VSCMGStateEffector::UpdateState(uint64_t CurrentSimNanos)
@@ -758,7 +756,7 @@ void VSCMGStateEffector::UpdateState(uint64_t CurrentSimNanos)
 
 /*!
  This method allows VSCMG devices to be added to this effector
- @return void
+
  @param NewVSCMG VSCMG device to be added
  */
 void VSCMGStateEffector::AddVSCMG(VSCMGConfigMsgPayload *NewVSCMG)

@@ -38,7 +38,7 @@ Encoder::~Encoder()
 
 
 /*! This method is used to reset the module.
- @return void
+
  */
 void Encoder::Reset(uint64_t CurrentSimNanos)
 {
@@ -89,7 +89,7 @@ void Encoder::readInputMessages()
 }
 
 /*! This method writes encoded the wheel speed message.
- @return void
+
  @param CurrentClock The clock time associated with the model call
  */
 void Encoder::writeOutputMessages(uint64_t CurrentClock)
@@ -112,7 +112,7 @@ void Encoder::encode(uint64_t CurrentSimNanos)
     clicksPerRadian = this->clicksPerRotation / (2 * M_PI);
 
     // set the time step
-    timeStep = (CurrentSimNanos - this->prevTime) * NANO2SEC;
+    timeStep = diffNanoToSec(CurrentSimNanos, this->prevTime);
 
     // at the beginning of the simulation, the encoder simply outputs the true RW speeds
     if (timeStep == 0.0)

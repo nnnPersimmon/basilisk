@@ -130,7 +130,7 @@ def run(show_plots):
     gravBodyEphem.setPlanetNames(planetEphemeris.StringVector(["Itokawa", "earth"]))
 
     # specify orbits of gravitational bodies
-    oeAsteroid = planetEphemeris.ClassicElementsMsgPayload()
+    oeAsteroid = planetEphemeris.ClassicElements()
     oeAsteroid.a = 1.3241 * orbitalMotion.AU * 1000  # meters
     oeAsteroid.e = 0.2801
     oeAsteroid.i = 1.6214*macros.D2R
@@ -138,7 +138,7 @@ def run(show_plots):
     oeAsteroid.omega = 162.82*macros.D2R
     oeAsteroid.f = 90.0*macros.D2R
 
-    oeEarth = planetEphemeris.ClassicElementsMsgPayload()
+    oeEarth = planetEphemeris.ClassicElements()
     oeEarth.a = orbitalMotion.AU * 1000  # meters
     oeEarth.e = 0.0167086
     oeEarth.i = 7.155 * macros.D2R
@@ -161,7 +161,7 @@ def run(show_plots):
 
     # setup asteroid gravity body
     mu = 2.34268    # meters^3/s^2
-    asteroid = gravFactory.createCustomGravObject("Itokawa", mu)
+    asteroid = gravFactory.createCustomGravObject("Itokawa", mu, radEquator=200)
 
     asteroid.isCentralBody = True  # ensure this is the central gravitational body
     asteroid.planetBodyInMsg.subscribeTo(gravBodyEphem.planetOutMsgs[0])
@@ -211,7 +211,10 @@ def run(show_plots):
         viz.settings.showSpacecraftLabels = 1
         # load CAD for custom gravity model
         vizSupport.createCustomModel(viz,
-                                     modelPath=os.path.join(path, "dataForExamples", "Itokawa", "ItokawaHayabusa.obj"),
+                                     # Specifying relative model path is useful for sharing scenarios and resources:
+                                     modelPath=os.path.join("..", "dataForExamples", "Itokawa", "ItokawaHayabusa.obj"),
+                                     # Specifying absolute model path is preferable for live-streaming:
+                                     # modelPath=os.path.join(path, "dataForExamples", "Itokawa", "ItokawaHayabusa.obj"),
                                      shader=1,
                                      simBodiesToModify=['Itokawa'],
                                      scale=[962, 962, 962])

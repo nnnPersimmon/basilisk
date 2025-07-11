@@ -115,7 +115,21 @@ public:
         this->initialized = true;           // set input message as linked
         this->headerPointer->isLinked = 1;  // set source output message as linked
     };
-
+    //! Subscribe to the message located at the sourceAddr in memory
+    void subscribeToAddr(uint64_t sourceAddr)
+    {
+        //!Cast a pointer at the sourceAddr and call the regular subscribe
+        Message<messageType> *source =
+            reinterpret_cast<Message<messageType> *> (sourceAddr);
+	    subscribeTo(source);
+    }
+    //! Subscribe to the C message located at the sourceAddr in memory
+    void subscribeToCAddr(uint64_t sourceAddr)
+    {
+        //! Cast a void* pointer and call the regular C-subscribe method
+        void *source = reinterpret_cast<void *> (sourceAddr);
+        subscribeToC(source);
+    }
     //! Subscribe to a C++ message
     void subscribeTo(Message<messageType> *source){
         *this = source->addSubscriber();
@@ -143,6 +157,20 @@ public:
         return (this->initialized && firstCheck && secondCheck );
 
     };
+    //! Check if self has been subscribed to the message at sourceAddr
+    uint8_t isSubscribedToAddr(uint64_t sourceAddr)
+    {
+        //!Cast a pointer at the sourceAddr and call the regular is-subscribe
+        Message<messageType> *source = reinterpret_cast<Message<messageType> *> (sourceAddr);
+        return(isSubscribedTo(source));
+    }
+    //! Check if self has been subscribed to the message at sourceAddr
+    uint8_t isSubscribedToCAddr(uint64_t sourceAddr)
+    {
+        //!Cast a void* pointer at the sourceAddr and call the regular is-subscribe
+        void *source = reinterpret_cast<void *> (sourceAddr);
+        return(isSubscribedToC(source));
+    }
 
     //! Recorder method description
     Recorder<messageType> recorder(uint64_t timeDiff = 0){return Recorder<messageType>(this, timeDiff);}
@@ -276,6 +304,13 @@ public:
     //! -- Read and record the message
     void UpdateState(uint64_t CurrentSimNanos){
         if (CurrentSimNanos >= this->nextUpdateTime) {
+            // Log warning if message is invalid but don't change behavior
+            if (!this->readMessage.isLinked() || !this->readMessage.isWritten()) {
+                messageType var;
+                bskLogger.bskLog(BSK_WARNING, "Recording message of type %s that is not properly initialized or written", typeid(var).name());
+            }
+
+            // Record the message
             this->msgRecordTimes.push_back(CurrentSimNanos);
             this->msgWrittenTimes.push_back(this->readMessage.timeWritten());
             this->msgRecord.push_back(this->readMessage());

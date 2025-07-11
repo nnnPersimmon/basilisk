@@ -18,7 +18,7 @@
  */
 /*
     FSW MODULE: RW motor voltage command
- 
+
  */
 
 #include "fswAlgorithms/effectorInterfaces/rwMotorVoltage/rwMotorVoltage.h"
@@ -29,7 +29,7 @@
 
 /*! This method initializes the configData for this module.
  It creates the output message.
- @return void
+
  @param configData The configuration data associated with this module
  @param moduleID The ID associated with the configData
  */
@@ -41,7 +41,7 @@ void SelfInit_rwMotorVoltage(rwMotorVoltageConfig *configData, int64_t moduleID)
 
 /*! This method performs a reset of the module as far as closed loop control is concerned.  Local module variables that retain
  time varying states between function calls are reset to their default values.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime Sim time in nanos
  @param moduleID The ID associated with the configData
@@ -63,10 +63,14 @@ void Reset_rwMotorVoltage(rwMotorVoltageConfig *configData, uint64_t callTime, i
     /* Reset the prior time flag state.
      If zero, control time step not evaluated on the first function call */
     configData->priorTime = 0;
+
+    /* zero the RW motor voltage output message */
+    ArrayMotorVoltageMsgPayload voltageOut = ArrayMotorVoltageMsg_C_zeroMsgPayload();
+    ArrayMotorVoltageMsg_C_write(&voltageOut, &configData->voltageOutMsg, moduleID, callTime);
 }
 
 /*! Update performs the torque to voltage conversion. If a wheel speed message was provided, it also does closed loop control of the voltage sent. It then writes the voltage message.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The ID associated with the configData
@@ -106,7 +110,7 @@ void Update_rwMotorVoltage(rwMotorVoltageConfig *configData, uint64_t callTime, 
     if (RWSpeedMsg_C_isLinked(&configData->rwSpeedInMsg)) {
         /* make sure the clock didn't just initialize, or the module was recently reset */
         if (configData->priorTime != 0) {
-            double dt = (callTime - configData->priorTime) * NANO2SEC; /*!< [s]   control update period */
+            double dt = diffNanoToSec(callTime, configData->priorTime); /*!< [s]   control update period */
             double              OmegaDot[MAX_EFF_CNT];     /*!< [r/s^2] RW angular acceleration */
             for (int i=0; i<configData->rwConfigParams.numRW; i++) {
                 if (rwAvailability.wheelAvailability[i] == AVAILABLE && configData->resetFlag == BOOL_FALSE) {
@@ -142,7 +146,7 @@ void Update_rwMotorVoltage(rwMotorVoltageConfig *configData, uint64_t callTime, 
     }
 
     /*
-     store the output message 
+     store the output message
      */
     ArrayMotorVoltageMsg_C_write(&voltageOut, &configData->voltageOutMsg, moduleID, callTime);
 

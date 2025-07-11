@@ -56,8 +56,8 @@ Next, the module is configured by specifying the orbital parameters of Bennu::
     G = 6.67408 * (10 ** -11)  # m^3 / kg*s^2
     massBennu = 7.329 * (10 ** 10)  # kg
     mu = G * massBennu  # Bennu grav. parameter, m^3/s^2
-    oeAsteroid = planetEphemeris.ClassicElementsMsgPayload()
-    oeAsteroid.a = 1.1264 * orbitalMotion.AU * 1000  # m
+    oeAsteroid = planetEphemeris.ClassicElements()
+    oeAsteroid.a = 1.1264 * astroConstants.AU * 1000  # m
     oeAsteroid.e = 0.20375
     oeAsteroid.i = 6.0349 * macros.D2R
     oeAsteroid.Omega = 2.0609 * macros.D2R
@@ -205,7 +205,7 @@ fileName = os.path.basename(os.path.splitext(__file__)[0])
 from Basilisk.utilities import (SimulationBaseClass, macros, simIncludeGravBody, vizSupport, unitTestSupport, orbitalMotion)
 from Basilisk.simulation import spacecraft, extForceTorque, simpleNav, ephemerisConverter, planetEphemeris
 from Basilisk.fswAlgorithms import mrpFeedback, attTrackingError, velocityPoint, locationPointing
-from Basilisk.architecture import messaging
+from Basilisk.architecture import messaging, astroConstants
 
 try:
     from Basilisk.simulation import vizInterface
@@ -257,8 +257,8 @@ def run(show_plots):
     G = 6.67408 * (10 ** -11)  # m^3 / kg*s^2
     massBennu = 7.329 * (10 ** 10)  # kg
     mu = G * massBennu  # Bennu grav. parameter, m^3/s^2
-    oeAsteroid = planetEphemeris.ClassicElementsMsgPayload()
-    oeAsteroid.a = 1.1264 * orbitalMotion.AU * 1000  # m
+    oeAsteroid = planetEphemeris.ClassicElements()
+    oeAsteroid.a = 1.1264 * astroConstants.AU * 1000  # m
     oeAsteroid.e = 0.20375
     oeAsteroid.i = 6.0349 * macros.D2R
     oeAsteroid.Omega = 2.0609 * macros.D2R
@@ -501,7 +501,12 @@ def run(show_plots):
                                                   # , saveFile=fileName
                                                   )
         viz.epochInMsg.subscribeTo(gravFactory.epochMsg)
+
         viz.settings.showCelestialBodyLabels = 1
+        viz.settings.showSpacecraftLabels = 1
+        viz.settings.truePathFixedFrame = "bennu"
+        viz.settings.trueTrajectoryLinesOn = 5  # relative to celestial body fixed frame
+
         viz.settings.scViewToPlanetViewBoundaryMultiplier = 100
         viz.settings.planetViewToHelioViewBoundaryMultiplier = 100
         viz.settings.orbitLinesOn = -1
@@ -594,7 +599,7 @@ def run(show_plots):
     runDvBurn(T1, -1, velAsteroidGuidance.attRefOutMsg)
 
     # Get current spacecraft states
-    velRef = scObject.dynManager.getStateObject("hubVelocity")
+    velRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubVelocity)
     vN = scRec.v_BN_N[-1] - astRec.VelocityVector[-1]
 
     # Apply a delta V and set the new velocity state in the circular capture orbit
@@ -610,7 +615,7 @@ def run(show_plots):
     runDvBurn(burnTime, -1, velAsteroidGuidance.attRefOutMsg)
 
     # Get access to dynManager translational states for future access to the states
-    velRef = scObject.dynManager.getStateObject("hubVelocity")
+    velRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubVelocity)
 
     # Retrieve the latest relative position and velocity components
     rN = scRec.r_BN_N[-1] - astRec.PositionVector[-1]

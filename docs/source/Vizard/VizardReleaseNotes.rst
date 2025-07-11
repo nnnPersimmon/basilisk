@@ -7,14 +7,87 @@ Release Notes
 
 .. sidebar:: In Progress Features
 
+    .. image:: /_images/static/basiliskVizardLogo.png
+       :align: center
+       :width: 100 %
+
     - general GUI enhancements
     - Add the rate gyro visualization
     - Alternate camera view points relative to non-spacecraft locations (lunar landing site, etc.)
     - Add magnetic torque bar visualization
     - Visualize aerobraking maneuvers
-    - Add interactive information panels that can include buttons for the user to interact with
-    - Add ability to listen to a Basilisk simulation broadcast (one-way communication only)
+    - Continue to refine and improve the interactive information panels
     - Save streamed data to file to avoid unbounded memory usage when viewing live data
+
+**Version 2.2.3 (April 20, 2025)**
+
+- Added QuadMap sub message to VizMessage.proto, allows user to draw a mesh of quads on celestial body or spacecraft
+- Added logging of QuadMap sub message in VizMessage panel
+- Added support for turning all QuadMap object labels on or off from Labels panel
+- Fixed bug with effectors not hiding when parent spacecraft is in sprite mode in planet local or solar system view
+
+**Version 2.2.2 (March 7, 2025)**
+
+- Migrated to Unity 6
+- TargetLines can target LocationMarkers
+- Improved support for scenarios with Locations in the thousands
+- Added support for scaling of Location markers, size can be increased or decreased from Vizard default dynamically per Location
+- MSM Heads Up Display - added support for other primitive shapes (cube, cylinder, capsule, as well as original sphere) which required adding sub-message fields for Shape, Dimensions, and Rotation of each MSM
+- Added effectors visibility at planet scale and solar system scale (effectors correctly scaled and offset relative to parent spacecraft)
+- Added support for “CAPSULE” primitive shape when importing CustomModel
+- Bug fix: if a normal map texture is imported when generating a custom material, the normal map is enabled in the shader
+- Bug fix: if imported model has multiple meshes, apply custom material to all meshes in model
+- Added input field to AdjustModel panel to control normal map height
+- Bug fix: when using buffered playback, chief spacecraft Hill or Velocity matrices are now automatically recalculated after buffer rollover
+- Bug fix: if camera target is a spacecraft on start-up and the settings flag SpacecraftCSon is set to 1, the spacecraft coordinate system will be shown and the cameraTarget CS on toggle will be on under the View Menu.
+- Added support for relative paths for importing custom models and textures (their paths should be relative to the location of the playback .bin file or the directory the scenario is being executed from, if showing a live simulation)
+
+**Version 2.2.1 (January 13, 2025)**
+
+- Added support for loading .glb model files at runtime using the Import Model GUI Panel or using the custom model import VizMessage
+- Added ability to plot each spacecraft’s true path trajectory relative to a parent body (default), another body selected by user, or relative to the origin of the inertial frame (old default), user can select how to plot the true path trajectory with an option button in the View menu
+- Added ability to visualize true path trajectory in a two-body rotating frame, user can select which two celestial bodies make up the rotating frame under the View menu
+- Added ability to plot each spacecraft’s true path trajectory in a selected spacecraft or celestial body’s fixed frame
+- Revised True Path Trajectory settings and organization under View Menu to improve use and support added trajectory view settings
+- Added support for the new True Path Trajectory view settings to VizMessage settings
+- Added “Open Scenario File” button to File Menu to allow user to load a different playback file without quitting Vizard
+- Added support for forcing any trainer selections in the View menu coordinate frames, osculating orbit lines, and true path trajectory lines to the broadcast viewers (trainees) when in ForcedSyncMode
+- Pointing line vectors will increase their length when their source object is a large model to remain visible
+- Reordered the View menu to put the chief selection button next to the orbit visualization toggles
+- Bug fix: three-channel precision restored on depth map camera images
+- Bug fix: protected against bad raycast call while loading obj at start that would cause app to freeze
+- Added addressables for IceSat and Kepler satellites
+
+**Version 2.2.0 (August 20, 2024)**
+
+- Added VizEventDialog message type to VizMessage.proto. EventDialogs allow the user to create a GUI
+  panel that pops up in Vizard with informational text and optional button choices that the viewer
+  can select to provide input to the simulation (via a VizEventReply message). There are three dialog
+  format types: informational, caution (yellow), and warning (red).
+- Added ability to send keyboard and EventDialog selection inputs live to connected Basilisk simulation,
+  via the new VizInput message in VizMessage.proto,  this feature requires Vizard to be connected to
+  Basilisk in the Receive & Reply mode
+- Added Receive Only streaming mode to allow additional Vizard instances to subscribe to a Basilisk
+  simulation as viewers. Receive Only connections cannot provide input back to the Basilisk simulation
+- Added forced synchronization of EventDialog and certain settings (orbit line visibility, coordinate
+  frame visibility) of Receive Only (broadcast) viewers with the Receive and Reply user (trainer).
+  When forced synchronization is enabled, broadcast Vizard instances will display the current choices
+  and settings selections of the trainer. The trainer can release forced synchronization mode under the
+  Broadcast tab of the Settings panel to allow broadcast viewers to control their own displays.
+- Improved Vizard handling of incorrect socket address or connection type: failure to connect will
+  result in error message and user will have a chance to correct socket address and/or connection type
+- Improved camera transition between scale regimes (spacecraft local view to planet local
+  view to hello view)
+- Improved camera transition on selection of new camera target
+- depth map shader output textures changed to red-channel only while multi-channel shader
+  issue is resolved
+
+.. warning::
+
+    - depth map shader color output values are being adjusted by Unity after being written by fragment shader,
+      resulting in incorrect depth measurements using the three-channel decoding
+    - The use of ``vizInterface.opNavMode`` is now depreciated.  See :ref:`vizardLiveComm` for more
+      information.  The setting ``opNavMode=1`` is now ``liveStream`` and ``opNavMode=2`` is now ``noDisplay``.
 
 **Version 2.1.6.1 (March 20, 2024)**
 

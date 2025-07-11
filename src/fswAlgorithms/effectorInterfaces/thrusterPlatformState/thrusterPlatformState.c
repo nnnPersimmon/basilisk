@@ -22,7 +22,7 @@
 #include "architecture/utilities/rigidBodyKinematics.h"
 
 /*! This method initializes the output messages for this module.
- @return void
+
  @param configData The configuration data associated with this module
  @param moduleID The module identifier
  */
@@ -34,7 +34,7 @@ void SelfInit_thrusterPlatformState(thrusterPlatformStateConfig *configData, int
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime [ns] time the method is called
  @param moduleID The module identifier
@@ -50,11 +50,15 @@ void Reset_thrusterPlatformState(thrusterPlatformStateConfig *configData, uint64
     if (!HingedRigidBodyMsg_C_isLinked(&configData->hingedRigidBody2InMsg)) {
         _bskLog(configData->bskLogger, BSK_ERROR, " thrusterPlatformState.hingedRigidBody2InMsg wasn't connected.");
     }
+
+    /* zero the thruster configuration output message */
+    THRConfigMsgPayload thrusterConfigBOut = THRConfigMsg_C_zeroMsgPayload();
+    THRConfigMsg_C_write(&thrusterConfigBOut, &configData->thrusterConfigBOutMsg, moduleID, callTime);
 }
 
 
 /*! This method updates the platformAngles message based on the updated information about the system center of mass
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The module identifier
@@ -91,6 +95,7 @@ void Update_thrusterPlatformState(thrusterPlatformStateConfig *configData, uint6
     v3Subtract(r_TM_B, r_BM_B, thrusterConfigBOut.rThrust_B);
     m33tMultV3(FB, thrusterConfigFIn.tHatThrust_B, thrusterConfigBOut.tHatThrust_B);
     thrusterConfigBOut.maxThrust = thrusterConfigFIn.maxThrust;
+    thrusterConfigBOut.swirlTorque = thrusterConfigFIn.swirlTorque;
 
     /*! write output thruster config msg */
     THRConfigMsg_C_write(&thrusterConfigBOut, &configData->thrusterConfigBOutMsg, moduleID, callTime);

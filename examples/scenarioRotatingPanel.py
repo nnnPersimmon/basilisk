@@ -20,7 +20,7 @@ r"""
 Overview
 --------
 
-This scenario demonstrates how to set up a spacecraft spacecraft with rotating panel.  A
+This scenario demonstrates how to set up a spacecraft with rotating panel.  A
 :ref:`coarseSunSensor` is then
 attached onto this panel such that it's bore-sight axis rotates with the panel.  Further, the panel state
 message is connected to :ref:`simpleSolarPanel`.
@@ -215,7 +215,7 @@ def run(show_plots):
     CSS2 = coarseSunSensor.CoarseSunSensor()
     CSS2.ModelTag = "CSS2_sensor"
     CSS2.fov = 45. * macros.D2R
-    CSS2.scaleFactor = 1.0
+    CSS2.scaleFactor = 0.8
     CSS2.sunInMsg.subscribeTo(sunStateMsg)
     CSS2.nHat_B = [0, 0, 1]
     CSS2.stateInMsg.subscribeTo(panel1.hingedRigidBodyConfigLogOutMsg)  # states relative to panel states

@@ -22,12 +22,11 @@
 
 #include "architecture/utilities/linearAlgebra.h"
 #include "architecture/utilities/rigidBodyKinematics.h"
-#include "architecture/utilities/astroConstants.h"
 
 const double epsilon = 1e-12;                           // module tolerance for zero
 
 /*! This method initializes the output messages for this module.
- @return void
+
  @param configData The configuration data associated with this module
  @param moduleID The module identifier
  */
@@ -43,7 +42,7 @@ void SelfInit_thrusterPlatformReference(ThrusterPlatformReferenceConfig *configD
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime [ns] time the method is called
  @param moduleID The module identifier
@@ -70,11 +69,24 @@ void Reset_thrusterPlatformReference(ThrusterPlatformReferenceConfig *configData
     v3SetZero(configData->hsInt_M);
     v3SetZero(configData->priorHs_M);
     configData->priorTime = callTime;
+
+    /* zero the output messages */
+    HingedRigidBodyMsgPayload hingedRigidBodyRef1Out = HingedRigidBodyMsg_C_zeroMsgPayload();
+    HingedRigidBodyMsgPayload hingedRigidBodyRef2Out = HingedRigidBodyMsg_C_zeroMsgPayload();
+    BodyHeadingMsgPayload bodyHeadingOut = BodyHeadingMsg_C_zeroMsgPayload();
+    CmdTorqueBodyMsgPayload thrusterTorqueOut = CmdTorqueBodyMsg_C_zeroMsgPayload();
+    THRConfigMsgPayload thrusterConfigOut = THRConfigMsg_C_zeroMsgPayload();
+
+    HingedRigidBodyMsg_C_write(&hingedRigidBodyRef1Out, &configData->hingedRigidBodyRef1OutMsg, moduleID, callTime);
+    HingedRigidBodyMsg_C_write(&hingedRigidBodyRef2Out, &configData->hingedRigidBodyRef2OutMsg, moduleID, callTime);
+    BodyHeadingMsg_C_write(&bodyHeadingOut, &configData->bodyHeadingOutMsg, moduleID, callTime);
+    CmdTorqueBodyMsg_C_write(&thrusterTorqueOut, &configData->thrusterTorqueOutMsg, moduleID, callTime);
+    THRConfigMsg_C_write(&thrusterConfigOut, &configData->thrusterConfigBOutMsg, moduleID, callTime);
 }
 
 
 /*! This method updates the platformAngles message based on the updated information about the system center of mass
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The module identifier
@@ -104,7 +116,7 @@ void Update_thrusterPlatformReference(ThrusterPlatformReferenceConfig *configDat
     double T_F[3];
     v3Copy(thrusterConfigFIn.tHatThrust_B, T_F);
     v3Scale(thrusterConfigFIn.maxThrust, T_F, T_F);
-    
+
     double FM[3][3];
     tprComputeFinalRotation(r_CM_M, r_TM_F, T_F, FM);
 
@@ -121,12 +133,12 @@ void Update_thrusterPlatformReference(ThrusterPlatformReferenceConfig *configDat
             v3Add(hs_B, vec3, hs_B);
         }
         double hs_M[3];
-        m33tMultV3(MB, hs_B, hs_M);
+        m33MultV3(MB, hs_B, hs_M);
 
         /*! update integral term */
         double DeltaHsInt_M[3];
         v3Add(configData->priorHs_M, hs_M, DeltaHsInt_M);
-        double dt = (callTime - configData->priorTime) * NANO2SEC;
+        double dt = diffNanoToSec(callTime, configData->priorTime);
         v3Scale(0.5*dt, DeltaHsInt_M, DeltaHsInt_M);
         v3Add(configData->hsInt_M, DeltaHsInt_M, configData->hsInt_M);
         v3Copy(hs_M, configData->priorHs_M);
@@ -227,8 +239,8 @@ void tprComputeFirstRotation(double THat_F[3], double rHat_CM_F[3], double F1M[3
     double e_phi[3];
     v3Cross(THat_F, rHat_CM_F, e_phi);
     // If phi = PI, e_phi can be any vector perpendicular to F_current_B
-    if (fabs(phi-MPI) < epsilon) {
-        phi = MPI;
+    if (fabs(phi-M_PI) < epsilon) {
+        phi = M_PI;
         if (fabs(THat_F[0]) > epsilon) {
             e_phi[0] = -(THat_F[1]+THat_F[2]) / THat_F[0];
             e_phi[1] = 1;
@@ -268,7 +280,7 @@ void tprComputeSecondRotation(double r_CM_F[3], double r_TM_F[3], double r_CT_F[
     double bVec[3];
     v3Copy(r_CM_F, bVec);
     double b = v3Norm(bVec);
-    
+
     double c1 = v3Norm(r_CT_F);
 
     double psi;
@@ -287,7 +299,7 @@ void tprComputeSecondRotation(double r_CM_F[3], double r_TM_F[3], double r_CT_F[
 
         psi = asin( fmin( fmax( (c1*sin(nu)*cosGamma2 - c2*sin(beta)*cosGamma1)/b, -1 ), 1 ) );
     }
-    
+
     double e_psi[3];
     v3Cross(THat_F, r_CT_F, e_psi);
     v3Normalize(e_psi, e_psi);
@@ -300,8 +312,8 @@ void tprComputeSecondRotation(double r_CM_F[3], double r_TM_F[3], double r_CT_F[
 
 void tprComputeThirdRotation(double e_theta[3], double F2M[3][3], double F3F2[3][3])
 {
-    double e1 = e_theta[0];  
-    double e2 = e_theta[1];  
+    double e1 = e_theta[0];
+    double e2 = e_theta[1];
     double e3 = e_theta[2];
 
     double A = 2 * (F2M[1][0]*e2*e2 + F2M[0][0]*e1*e2 + F2M[2][0]*e2*e3) - F2M[1][0];
@@ -313,9 +325,9 @@ void tprComputeThirdRotation(double e_theta[3], double F2M[3][3], double F3F2[3]
     double t, t1, t2, y, y1, y2, theta;
     if (fabs(A) < epsilon) {
         if (fabs(B) < epsilon) {
-            // zero-th order equation has no solution 
-            // the solution of the minimum problem is theta = MPI
-            theta = MPI;
+            // zero-th order equation has no solution
+            // the solution of the minimum problem is theta = M_PI
+            theta = M_PI;
         }
         else {
             // first order equation
@@ -325,7 +337,7 @@ void tprComputeThirdRotation(double e_theta[3], double F2M[3][3], double F3F2[3]
     }
     else {
         if (Delta < 0) {
-            // second order equation has no solution 
+            // second order equation has no solution
             // the solution of the minimum problem is found
             if (fabs(B) < epsilon) {
                 t = 0.0;
@@ -345,9 +357,9 @@ void tprComputeThirdRotation(double e_theta[3], double F2M[3][3], double F3F2[3]
             }
             theta = 2*atan(t);
             y = (A*t*t + B*t + C) / (1 + t*t);
-            // check if the absolute fcn minimum is for theta = MPI
+            // check if the absolute fcn minimum is for theta = M_PI
             if (fabs(A) < fabs(y)) {
-                theta = MPI;
+                theta = M_PI;
             }
         }
         else {

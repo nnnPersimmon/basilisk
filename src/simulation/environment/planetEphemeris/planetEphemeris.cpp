@@ -19,8 +19,9 @@
 #include "simulation/environment/planetEphemeris/planetEphemeris.h"
 #include <iostream>
 #include <string.h>
-#include "architecture/utilities/macroDefinitions.h"
 #include "architecture/utilities/astroConstants.h"
+#include "architecture/utilities/linearAlgebra.h"
+#include "architecture/utilities/macroDefinitions.h"
 #include "architecture/utilities/rigidBodyKinematics.h"
 
 
@@ -111,7 +112,7 @@ void PlanetEphemeris::Reset(uint64_t CurrenSimNanos)
 /*! This update routine loops over all the planets and creates their heliocentric position
  and velocity vectors at the current time. If the planet orientation information is provided,
  then this is computed as well.  The default orientation information is a zero orientation.
- @return void
+
  @param CurrentSimNanos The current clock time for the simulation
  */
 void PlanetEphemeris::UpdateState(uint64_t CurrentSimNanos)

@@ -28,13 +28,17 @@
 /*! This is the constructor, setting variables to default values */
 Spacecraft::Spacecraft()
 {
-    // - Set default names
+    // - Set default propery names
     this->sysTimePropertyName = "systemTime";
+    this->propName_m_SC = "m_SC";
+    this->propName_mDot_SC = "mDot_SC";
+    this->propName_centerOfMassSC = "centerOfMassSC";
+    this->propName_inertiaSC = "inertiaSC";
+    this->propName_inertiaPrimeSC = "inertiaPrimeSC";
+    this->propName_centerOfMassPrimeSC = "centerOfMassPrimeSC";
+    this->propName_centerOfMassDotSC = "centerOfMassDotSC";
 
     // - Set values to either zero or default values
-    this->currTimeStep = 0.0;
-    this->timePrevious = 0.0;
-    this->simTimePrevious = 0;
     this->dvAccum_CN_B.setZero();
     this->dvAccum_BN_B.setZero();
     this->dvAccum_CN_N.setZero();
@@ -50,7 +54,7 @@ Spacecraft::~Spacecraft()
 
 
 /*! This method is used to reset the module.
- @return void
+
  */
 void Spacecraft::Reset(uint64_t CurrentSimNanos)
 {
@@ -68,17 +72,25 @@ void Spacecraft::Reset(uint64_t CurrentSimNanos)
         // - Call writeOutputStateMessages for stateEffectors
         (*it)->writeOutputStateMessages(CurrentSimNanos);
     }
+
+    this->timeBefore = CurrentSimNanos * NANO2SEC;
+    this->timeBeforeNanos = CurrentSimNanos;
 }
+
 
 /*! This method attaches a stateEffector to the dynamicObject */
 void Spacecraft::addStateEffector(StateEffector *newStateEffector)
 {
+    this->assignStateParamNames<StateEffector *>(newStateEffector);
+
     this->states.push_back(newStateEffector);
 }
 
 /*! This method attaches a dynamicEffector to the dynamicObject */
 void Spacecraft::addDynamicEffector(DynamicEffector *newDynamicEffector)
 {
+    this->assignStateParamNames<DynamicEffector *>(newDynamicEffector);
+
     this->dynEffectors.push_back(newDynamicEffector);
 }
 
@@ -149,14 +161,11 @@ void Spacecraft::readOptionalRefMsg()
 /*! This method is a part of sysModel and is used to integrate the state and update the state in the messaging system */
 void Spacecraft::UpdateState(uint64_t CurrentSimNanos)
 {
-    // - Convert current time to seconds
-    double newTime = CurrentSimNanos*NANO2SEC;
-
     // - Get access to the spice bodies
     this->gravField.UpdateState(CurrentSimNanos);
 
     // - Integrate the state forward in time
-    this->integrateState(newTime);
+    this->integrateState(CurrentSimNanos);
 
     // If set, read in and prescribe attitude reference motion
     readOptionalRefMsg();
@@ -174,7 +183,6 @@ void Spacecraft::UpdateState(uint64_t CurrentSimNanos)
         // - Call writeOutputStateMessages for stateEffectors
         (*it)->writeOutputStateMessages(CurrentSimNanos);
     }
-    this->simTimePrevious = CurrentSimNanos;
 }
 
 /*! This method allows the spacecraft to have access to the current state of the hub for MRP switching, writing
@@ -182,17 +190,17 @@ void Spacecraft::UpdateState(uint64_t CurrentSimNanos)
 void Spacecraft::linkInStates(DynParamManager& statesIn)
 {
     // - Get access to all hub states
-    this->hubR_N = statesIn.getStateObject("hubPosition");
-    this->hubV_N = statesIn.getStateObject("hubVelocity");
-    this->hubSigma = statesIn.getStateObject("hubSigma");   /* Need sigmaBN for MRP switching */
-    this->hubOmega_BN_B = statesIn.getStateObject("hubOmega");
-    this->hubGravVelocity = statesIn.getStateObject("hubGravVelocity");
-    this->BcGravVelocity = statesIn.getStateObject("BcGravVelocity");
+    this->hubR_N = statesIn.getStateObject(this->hub.nameOfHubPosition);
+    this->hubV_N = statesIn.getStateObject(this->hub.nameOfHubVelocity);
+    this->hubSigma = statesIn.getStateObject(this->hub.nameOfHubSigma);   /* Need sigmaBN for MRP switching */
+    this->hubOmega_BN_B = statesIn.getStateObject(this->hub.nameOfHubOmega);
+    this->hubGravVelocity = statesIn.getStateObject(this->hub.nameOfHubGravVelocity);
+    this->BcGravVelocity = statesIn.getStateObject(this->hub.nameOfBcGravVelocity);
 
     // - Get access to the hubs position and velocity in the property manager
-    this->inertialPositionProperty = statesIn.getPropertyReference("r_BN_N");
-    this->inertialVelocityProperty = statesIn.getPropertyReference("v_BN_N");
-    this->g_N = statesIn.getPropertyReference("g_N");
+    this->inertialPositionProperty = statesIn.getPropertyReference(this->gravField.inertialPositionPropName);
+    this->inertialVelocityProperty = statesIn.getPropertyReference(this->gravField.inertialVelocityPropName);
+    this->g_N = statesIn.getPropertyReference(this->gravField.vehicleGravityPropName);
 }
 
 /*! This method is used to initialize the simulation by registering all of the states, linking the dynamicEffectors,
@@ -211,13 +219,13 @@ void Spacecraft::initializeDynamics()
     Eigen::MatrixXd systemTime(2,1);
     systemTime.setZero();
     // - Create the properties
-    this->m_SC = this->dynManager.createProperty("m_SC", initM_SC);
-    this->mDot_SC = this->dynManager.createProperty("mDot_SC", initMDot_SC);
-    this->c_B = this->dynManager.createProperty("centerOfMassSC", initC_B);
-    this->ISCPntB_B = this->dynManager.createProperty("inertiaSC", initISCPntB_B);
-    this->ISCPntBPrime_B = this->dynManager.createProperty("inertiaPrimeSC", initISCPntBPrime_B);
-    this->cPrime_B = this->dynManager.createProperty("centerOfMassPrimeSC", initCPrime_B);
-    this->cDot_B = this->dynManager.createProperty("centerOfMassDotSC", initCDot_B);
+    this->m_SC = this->dynManager.createProperty(this->propName_m_SC, initM_SC);
+    this->mDot_SC = this->dynManager.createProperty(this->propName_mDot_SC, initMDot_SC);
+    this->c_B = this->dynManager.createProperty(this->propName_centerOfMassSC, initC_B);
+    this->ISCPntB_B = this->dynManager.createProperty(this->propName_inertiaSC, initISCPntB_B);
+    this->ISCPntBPrime_B = this->dynManager.createProperty(this->propName_inertiaPrimeSC, initISCPntBPrime_B);
+    this->cPrime_B = this->dynManager.createProperty(this->propName_centerOfMassPrimeSC, initCPrime_B);
+    this->cDot_B = this->dynManager.createProperty(this->propName_centerOfMassDotSC, initCDot_B);
     this->sysTime = this->dynManager.createProperty(this->sysTimePropertyName, systemTime);
 
     // - Register the gravity properties with the dynManager, 'erbody wants g_N!
@@ -325,7 +333,8 @@ void Spacecraft::updateSCMassProps(double time)
 void Spacecraft::equationsOfMotion(double integTimeSeconds, double timeStep)
 {
     // - Update time to the current time
-    uint64_t integTimeNanos = this->simTimePrevious + (uint64_t) ((integTimeSeconds-this->timePrevious)/NANO2SEC);
+    uint64_t integTimeNanos = secToNano(integTimeSeconds);
+
     (*this->sysTime) << (double) integTimeNanos, integTimeSeconds;
 
     // - Zero all Matrices and vectors for back-sub and the dynamics
@@ -438,10 +447,10 @@ void Spacecraft::equationsOfMotion(double integTimeSeconds, double timeStep)
 }
 
 /*! Prepare for integration process
- @param integrateToThisTime Time to integrate to
+ @param integrateToThisTimeNanos Time to integrate to
  */
-void Spacecraft::preIntegration(double integrateToThisTime) {
-    this->timeStep = integrateToThisTime - this->timePrevious;
+void Spacecraft::preIntegration(uint64_t integrateToThisTimeNanos) {
+    this->timeStep = diffNanoToSec(integrateToThisTimeNanos, this->timeBeforeNanos); // - Find the time step in seconds
 
     // - Find v_CN_N before integration for accumulated DV
     Eigen::Vector3d oldV_BN_N = this->hubV_N->getState();  // - V_BN_N before integration
@@ -458,14 +467,15 @@ void Spacecraft::preIntegration(double integrateToThisTime) {
 
     // - Integrate the state from the last time (timeBefore) to the integrateToThisTime
     this->hub.matchGravitytoVelocityState(oldV_CN_N); // Set gravity velocity to base velocity for DV estimation
-    this->timeBefore = integrateToThisTime - this->timeStep;
 }
 
 /*! Perform post-integration steps
- @param integrateToThisTime Time to integrate to
+ @param integrateToThisTimeNanos Time to integrate to
  */
-void Spacecraft::postIntegration(double integrateToThisTime) {
-    this->timePrevious = integrateToThisTime;     // - copy the current time into previous time for next integrate state call
+void Spacecraft::postIntegration(uint64_t integrateToThisTimeNanos) {
+    this->timeBeforeNanos = integrateToThisTimeNanos;     // - copy the current time into previous time for next integrate state call
+    this->timeBefore = integrateToThisTimeNanos*NANO2SEC;
+    double integrateToThisTime = integrateToThisTimeNanos*NANO2SEC; // - convert to seconds
 
     // - Call mass properties to get current info on the mass props of the spacecraft
     this->updateSCMassProps(integrateToThisTime);

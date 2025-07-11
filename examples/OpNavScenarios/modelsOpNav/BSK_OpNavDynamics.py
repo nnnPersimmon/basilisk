@@ -19,7 +19,7 @@ r"""
 Overview
 --------
 
-``OpNavScenarios/models/BSK_OpNavDynamics.py`` is similar to the :ref:`Folder_BskSim` versions seen previously.
+``OpNavScenarios/models/BSK_OpNavDynamics.py`` is similar to the ``bskSim()`` versions seen previously.
 The main additions are
 the instantiation of :ref:`vizInterface`, and the camera module.
 
@@ -185,7 +185,7 @@ class BSKDynamicModels():
         # setup OpNav behavior by connecting camera module config message
         self.vizInterface.addCamMsgToModule(self.cameraMod.cameraConfigOutMsg)
         self.vizInterface.addCamMsgToModule(self.cameraMod2.cameraConfigOutMsg)
-        self.vizInterface.opNavMode = 2
+        self.vizInterface.noDisplay = True
         self.vizInterface.settings.skyBox = "black"
         self.vizInterface.settings.ambient = 0.5
 
@@ -328,13 +328,18 @@ class BSKDynamicModels():
         """Set the 8 CSS sensors"""
         self.CSSConstellationObject.ModelTag = "cssConstellation"
 
+        # Create class-level registry if it doesn't exist
+        if not hasattr(self, '_css_registry'):
+            self._css_registry = []
+
         def setupCSS(cssDevice):
             cssDevice.fov = 80. * mc.D2R         # half-angle field of view value
             cssDevice.scaleFactor = 2.0
             cssDevice.sunInMsg.subscribeTo(self.gravFactory.spiceObject.planetStateOutMsgs[self.sun])
             cssDevice.stateInMsg.subscribeTo(self.scObject.scStateOutMsg)
             cssDevice.sunEclipseInMsg.subscribeTo(self.eclipseObject.eclipseOutMsgs[0])
-            cssDevice.this.disown()
+            # Store CSS in class-level registry
+            self._css_registry.append(cssDevice)
 
         # setup CSS sensor normal vectors in body frame components
         nHat_B_List = [
@@ -369,7 +374,7 @@ class BSKDynamicModels():
     def SetSimpleGrav(self):
         planet = self.gravFactory.createMarsBarycenter()
         planet.isCentralBody = True
-        
+
         self.gravFactory.addBodiesTo(self.scObject)
 
     # Global call to initialize every module
@@ -387,5 +392,3 @@ class BSKDynamicModels():
         self.SetEphemConvert()
         self.SetCamera()
         self.SetCamera2()
-
-

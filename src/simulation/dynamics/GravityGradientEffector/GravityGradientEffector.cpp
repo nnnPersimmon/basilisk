@@ -20,7 +20,6 @@
 #include <iostream>
 #include "GravityGradientEffector.h"
 #include "architecture/utilities/linearAlgebra.h"
-#include "architecture/utilities/astroConstants.h"
 
 GravityGradientEffector::GravityGradientEffector()
 {
@@ -35,7 +34,7 @@ GravityGradientEffector::~GravityGradientEffector()
 
 
 /*! This method is used to set the effector, and check same module variables
-@return void
+
 */
 void GravityGradientEffector::Reset(uint64_t CurrentSimNanos)
 {
@@ -57,7 +56,7 @@ void GravityGradientEffector::Reset(uint64_t CurrentSimNanos)
 
 /*! This method adds planet names to a vector.
  @param planetName The planet name
- @return void
+
  */
 void GravityGradientEffector::addPlanetName(std::string planetName)
 {
@@ -68,7 +67,7 @@ void GravityGradientEffector::addPlanetName(std::string planetName)
 
 
 /*! Write the gravity gradient torque output message.
-@return void
+
  */
 void GravityGradientEffector::WriteOutputMessages(uint64_t CurrentClock)
 {
@@ -80,15 +79,15 @@ void GravityGradientEffector::WriteOutputMessages(uint64_t CurrentClock)
 }
 
 /*! This method is used to link the gravity gradient effector to the hub position, inertia tensor and center of mass vector.
- @return void
+
  */
 
 void GravityGradientEffector::linkInStates(DynParamManager& states){
-    this->hubSigma = states.getStateObject("hubSigma");
-    this->r_BN_N = states.getStateObject("hubPosition");
-	this->ISCPntB_B = states.getPropertyReference("inertiaSC");
-    this->c_B = states.getPropertyReference("centerOfMassSC");
-    this->m_SC = states.getPropertyReference("m_SC");
+    this->hubSigma = states.getStateObject(this->stateNameOfSigma);
+    this->r_BN_N = states.getStateObject(this->stateNameOfPosition);
+    this->ISCPntB_B = states.getPropertyReference(this->propName_inertiaSC);
+    this->c_B = states.getPropertyReference(this->propName_centerOfMassSC);
+    this->m_SC = states.getPropertyReference(this->propName_m_SC);
 
     std::vector<std::string>::iterator name;
     for(name = this->planetPropertyNames.begin(); name != this->planetPropertyNames.end(); name++) {
@@ -143,7 +142,7 @@ void GravityGradientEffector::computeForceTorque(double integTime, double timeSt
 
 /*! This method is called once per BSK update cycle.  It writes out a msg of the
     evaluated gravity gradient torque.
- @return void
+
  @param CurrentSimNanos The current simulation time in nanoseconds
  */
 void GravityGradientEffector::UpdateState(uint64_t CurrentSimNanos)

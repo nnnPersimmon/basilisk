@@ -38,19 +38,22 @@ namespace std {
 }
 
 %include "sys_model.i"
-%include "simulation/dynamics/_GeneralModuleFiles/stateData.h"
+%include "simulation/dynamics/_GeneralModuleFiles/dynParamManager.i"
 %include "simulation/dynamics/_GeneralModuleFiles/dynamicEffector.h"
-%include "simulation/dynamics/_GeneralModuleFiles/dynParamManager.h"
 %include "thrusterDynamicEffector.h"
 
 %include "simulation/dynamics/_GeneralModuleFiles/THRTimePair.h"
-%include "simulation/dynamics/_GeneralModuleFiles/THRSimConfig.h"
+%import "simulation/dynamics/_GeneralModuleFiles/THRSimConfig.i"
 
 %include "architecture/msgPayloadDefC/THRArrayOnTimeCmdMsgPayload.h"
 struct THRArrayOnTimeCmdMsg_C;
 %include "architecture/msgPayloadDefCpp/THROutputMsgPayload.h"
 %include "architecture/msgPayloadDefC/SCStatesMsgPayload.h"
 struct SCStatesMsg_C;
+
+%pythoncode %{
+from Basilisk.simulation.THRSimConfig import THRSimConfig as THRSimConfig
+%}
 
 %pythoncode %{
 import sys

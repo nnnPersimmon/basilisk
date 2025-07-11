@@ -97,7 +97,7 @@ from Basilisk.simulation import spacecraft
 
 # import general simulation support files
 from Basilisk.utilities import SimulationBaseClass
-from Basilisk.utilities import astroFunctions
+from Basilisk.architecture import astroConstants
 from Basilisk.utilities import macros
 from Basilisk.utilities import orbitalMotion
 from Basilisk.utilities import simIncludeGravBody
@@ -271,7 +271,7 @@ def run(show_plots):
     # Create the initial imaging target
     imagingTarget = groundLocation.GroundLocation()
     imagingTarget.ModelTag = "ImagingTarget"
-    imagingTarget.planetRadius = astroFunctions.E_radius * 1e3
+    imagingTarget.planetRadius = astroConstants.REQ_EARTH * 1e3
     imagingTarget.specifyLocation(np.radians(40.009971), np.radians(-105.243895), 1624)
     imagingTarget.minimumElevation = np.radians(10.0)
     imagingTarget.maximumRange = 1e9
@@ -281,7 +281,7 @@ def run(show_plots):
     # Create a ground station in Singapore
     singaporeStation = groundLocation.GroundLocation()
     singaporeStation.ModelTag = "SingaporeStation"
-    singaporeStation.planetRadius = astroFunctions.E_radius * 1e3
+    singaporeStation.planetRadius = astroConstants.REQ_EARTH * 1e3
     singaporeStation.specifyLocation(np.radians(1.3521), np.radians(103.8198), 15)
     singaporeStation.minimumElevation = np.radians(5.0)
     singaporeStation.maximumRange = 1e9
@@ -461,13 +461,13 @@ def run(show_plots):
             viz,
             stationName="Santiago Target",
             parentBodyName=earth.displayName,
-            r_GP_P=[1761771.6422437236, -5022201.882030934, -3515898.6046771165],
+            lla_GP=[np.deg2rad(-33.4489), np.deg2rad(-70.6693), 569.7],
             fieldOfView=np.radians(160.0),
             color="pink",
             range=2000.0 * 1000,  # meters
         )
 
-        # Add the Santiago target
+        # Add the Singapore target
         vizSupport.addLocation(
             viz,
             stationName="Singapore Station",

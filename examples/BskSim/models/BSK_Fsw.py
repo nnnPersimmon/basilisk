@@ -20,13 +20,25 @@ import math
 
 import numpy as np
 from Basilisk.architecture import messaging
-from Basilisk.fswAlgorithms import (hillPoint, inertial3D, attTrackingError, mrpFeedback,
-                                    rwMotorTorque,
-                                    velocityPoint, mrpSteering, rateServoFullNonlinear,
-                                    sunSafePoint, cssWlsEst)
+from Basilisk.fswAlgorithms import (
+    attTrackingError,
+    cssWlsEst,
+    hillPoint,
+    inertial3D,
+    lambertPlanner,
+    lambertSecondDV,
+    lambertSolver,
+    lambertSurfaceRelativeVelocity,
+    lambertValidator,
+    mrpFeedback,
+    mrpSteering,
+    rateServoFullNonlinear,
+    rwMotorTorque,
+    sunSafePoint,
+    velocityPoint,
+)
 from Basilisk.utilities import RigidBodyKinematics as rbk
-from Basilisk.utilities import fswSetupRW
-from Basilisk.utilities import deprecated
+from Basilisk.utilities import deprecated, fswSetupRW
 from Basilisk.utilities import macros as mc
 
 
@@ -41,6 +53,7 @@ class BSKFswModels:
         self.attRefMsg = None
         self.attGuidMsg = None
         self.cmdRwMotorMsg = None
+        self.dvBurnCmdMsg = None
 
         # Define process name and default time-step for all FSW tasks defined later on
         self.processName = SimBase.FSWProcessName
@@ -80,6 +93,21 @@ class BSKFswModels:
         self.rwMotorTorque = rwMotorTorque.rwMotorTorque()
         self.rwMotorTorque.ModelTag = "rwMotorTorque"
 
+        self.lambertPlannerObject = lambertPlanner.LambertPlanner()
+        self.lambertPlannerObject.ModelTag = "LambertPlanner"
+
+        self.lambertSolverObject = lambertSolver.LambertSolver()
+        self.lambertSolverObject.ModelTag = "LambertSolver"
+
+        self.lambertValidatorObject = lambertValidator.LambertValidator()
+        self.lambertValidatorObject.ModelTag = "LambertValidator"
+
+        self.lambertSurfaceRelativeVelocityObject = lambertSurfaceRelativeVelocity.LambertSurfaceRelativeVelocity()
+        self.lambertSurfaceRelativeVelocityObject.ModelTag = "LambertSurfaceRelativeVelocity"
+
+        self.lambertSecondDvObject = lambertSecondDV.LambertSecondDV()
+        self.lambertSecondDvObject.ModelTag = "LambertSecondDV"
+
         # create the FSW module gateway messages
         self.setupGatewayMsgs(SimBase)
 
@@ -94,6 +122,8 @@ class BSKFswModels:
         SimBase.fswProc.addTask(SimBase.CreateNewTask("mrpFeedbackTask", self.processTasksTimeStep), 10)
         SimBase.fswProc.addTask(SimBase.CreateNewTask("mrpSteeringRWsTask", self.processTasksTimeStep), 10)
         SimBase.fswProc.addTask(SimBase.CreateNewTask("mrpFeedbackRWsTask", self.processTasksTimeStep), 10)
+        SimBase.fswProc.addTask(SimBase.CreateNewTask("lambertGuidanceFirstDV", self.processTasksTimeStep), 20)
+        SimBase.fswProc.addTask(SimBase.CreateNewTask("lambertGuidanceSecondDV", self.processTasksTimeStep), 20)
 
         # Assign initialized modules to tasks
         SimBase.AddModelToTask("inertial3DPointTask", self.inertial3D, 10)
@@ -117,67 +147,147 @@ class BSKFswModels:
         SimBase.AddModelToTask("mrpFeedbackRWsTask", self.mrpFeedbackRWs, 9)
         SimBase.AddModelToTask("mrpFeedbackRWsTask", self.rwMotorTorque, 8)
 
+        SimBase.AddModelToTask("lambertGuidanceFirstDV", self.lambertPlannerObject, None, 10)
+        SimBase.AddModelToTask("lambertGuidanceFirstDV", self.lambertSolverObject, None, 9)
+        SimBase.AddModelToTask("lambertGuidanceFirstDV", self.lambertValidatorObject, None, 8)
+
+        SimBase.AddModelToTask("lambertGuidanceSecondDV", self.lambertSurfaceRelativeVelocityObject, None, 10)
+        SimBase.AddModelToTask("lambertGuidanceSecondDV", self.lambertSecondDvObject, None, 9)
+
         # Create events to be called for triggering GN&C maneuvers
         SimBase.fswProc.disableAllTasks()
 
-        SimBase.createNewEvent("initiateStandby", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'standby'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.setAllButCurrentEventActivity('initiateStandby', True)"
-                                ])
+        SimBase.createNewEvent(
+            "initiateStandby",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "standby",
+            actionFunction=lambda self: (
+                "self.fswProc.disableAllTasks()",
+                "self.FSWModels.zeroGateWayMsgs()",
+                "self.setAllButCurrentEventActivity('initiateStandby', True)",
+            ),
+        )
 
-        SimBase.createNewEvent("initiateAttitudeGuidance", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'inertial3D'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('inertial3DPointTask')",
-                                "self.enableTask('mrpFeedbackRWsTask')",
-                                "self.setAllButCurrentEventActivity('initiateAttitudeGuidance', True)"
-                                ])
+        SimBase.createNewEvent(
+            "initiateAttitudeGuidance",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "inertial3D",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("inertial3DPointTask"),
+                self.enableTask("mrpFeedbackRWsTask"),
+                self.setAllButCurrentEventActivity("initiateAttitudeGuidance", True),
+            ),
+        )
 
-        SimBase.createNewEvent("initiateAttitudeGuidanceDirect", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'directInertial3D'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('inertial3DPointTask')",
-                                "self.enableTask('mrpFeedbackTask')",
-                                "self.setAllButCurrentEventActivity('initiateAttitudeGuidanceDirect', True)"
-                                ])
+        SimBase.createNewEvent(
+            "initiateAttitudeGuidanceDirect",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "directInertial3D",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("inertial3DPointTask"),
+                self.enableTask("mrpFeedbackTask"),
+                self.setAllButCurrentEventActivity(
+                    "initiateAttitudeGuidanceDirect", True
+                ),
+            ),
+        )
 
-        SimBase.createNewEvent("initiateHillPoint", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'hillPoint'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('hillPointTask')",
-                                "self.enableTask('mrpFeedbackRWsTask')",
-                                "self.setAllButCurrentEventActivity('initiateHillPoint', True)"
-                                ])
+        SimBase.createNewEvent(
+            "initiateHillPoint",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "hillPoint",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("hillPointTask"),
+                self.enableTask("mrpFeedbackRWsTask"),
+                self.setAllButCurrentEventActivity("initiateHillPoint", True),
+            ),
+        )
 
-        SimBase.createNewEvent("initiateSunSafePoint", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'sunSafePoint'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('sunSafePointTask')",
-                                "self.enableTask('mrpSteeringRWsTask')",
-                                "self.setAllButCurrentEventActivity('initiateSunSafePoint', True)"
-                                ])
+        SimBase.createNewEvent(
+            "initiateSunSafePoint",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "sunSafePoint",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("sunSafePointTask"),
+                self.enableTask("mrpSteeringRWsTask"),
+                self.setAllButCurrentEventActivity("initiateSunSafePoint", True),
+            ),
+        )
 
-        SimBase.createNewEvent("initiateVelocityPoint", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'velocityPoint'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('velocityPointTask')",
-                                "self.enableTask('mrpFeedbackRWsTask')",
-                                "self.setAllButCurrentEventActivity('initiateVelocityPoint', True)"])
+        SimBase.createNewEvent(
+            "initiateVelocityPoint",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "velocityPoint",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("velocityPointTask"),
+                self.enableTask("mrpFeedbackRWsTask"),
+                self.setAllButCurrentEventActivity("initiateVelocityPoint", True),
+            ),
+        )
 
-        SimBase.createNewEvent("initiateSteeringRW", self.processTasksTimeStep, True,
-                               ["self.modeRequest == 'steeringRW'"],
-                               ["self.fswProc.disableAllTasks()",
-                                "self.FSWModels.zeroGateWayMsgs()",
-                                "self.enableTask('hillPointTask')",
-                                "self.enableTask('mrpSteeringRWsTask')",
-                                "self.setAllButCurrentEventActivity('initiateSteeringRW', True)"])
+        SimBase.createNewEvent(
+            "initiateSteeringRW",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "steeringRW",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("hillPointTask"),
+                self.enableTask("mrpSteeringRWsTask"),
+                self.setAllButCurrentEventActivity("initiateSteeringRW", True),
+            ),
+        )
+
+        SimBase.createNewEvent(
+            "initiateLambertGuidanceFirstDV",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "lambertFirstDV",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("hillPointTask"),
+                self.enableTask("mrpSteeringRWsTask"),
+                self.enableTask("lambertGuidanceFirstDV"),
+                self.setAllButCurrentEventActivity(
+                    "initiateLambertGuidanceFirstDV", True
+                ),
+            ),
+        )
+
+        SimBase.createNewEvent(
+            "initiateLambertGuidanceSecondDV",
+            self.processTasksTimeStep,
+            True,
+            conditionFunction=lambda self: self.modeRequest == "lambertSecondDV",
+            actionFunction=lambda self: (
+                self.fswProc.disableAllTasks(),
+                self.FSWModels.zeroGateWayMsgs(),
+                self.enableTask("hillPointTask"),
+                self.enableTask("mrpSteeringRWsTask"),
+                self.enableTask("lambertGuidanceSecondDV"),
+                self.setAllButCurrentEventActivity(
+                    "initiateLambertGuidanceSecondDV", True
+                ),
+            ),
+        )
 
     # ------------------------------------------------------------------------------------------- #
     # These are module-initialization methods
@@ -320,6 +430,37 @@ class BSKFswModels:
         messaging.ArrayMotorTorqueMsg_C_addAuthor(self.rwMotorTorque.rwMotorTorqueOutMsg, self.cmdRwMotorMsg)
         self.rwMotorTorque.rwParamsInMsg.subscribeTo(self.fswRwConfigMsg)
 
+    def SetLambertPlannerObject(self, SimBase):
+        """Set the lambert planner object."""
+        self.lambertPlannerObject.navTransInMsg.subscribeTo(SimBase.DynModels.simpleNavObject.transOutMsg)
+
+    def SetLambertSolverObject(self):
+        """Set the lambert solver object."""
+        self.lambertSolverObject.lambertProblemInMsg.subscribeTo(self.lambertPlannerObject.lambertProblemOutMsg)
+
+    def SetLambertValidatorObject(self, SimBase):
+        """Set the lambert validator object."""
+        self.lambertValidatorObject.navTransInMsg.subscribeTo(SimBase.DynModels.simpleNavObject.transOutMsg)
+        self.lambertValidatorObject.lambertProblemInMsg.subscribeTo(self.lambertPlannerObject.lambertProblemOutMsg)
+        self.lambertValidatorObject.lambertPerformanceInMsg.subscribeTo(
+            self.lambertSolverObject.lambertPerformanceOutMsg)
+        self.lambertValidatorObject.lambertSolutionInMsg.subscribeTo(self.lambertSolverObject.lambertSolutionOutMsg)
+        self.lambertValidatorObject.dvBurnCmdOutMsg = self.dvBurnCmdMsg
+
+    def SetLambertSurfaceRelativeVelocityObject(self, SimBase):
+        """Set the lambert surface relative velocity object."""
+        self.lambertSurfaceRelativeVelocityObject.lambertProblemInMsg.subscribeTo(
+            self.lambertPlannerObject.lambertProblemOutMsg)
+        self.lambertSurfaceRelativeVelocityObject.ephemerisInMsg.subscribeTo(
+            SimBase.DynModels.EarthEphemObject.ephemOutMsgs[0])
+
+    def SetLambertSecondDvObject(self):
+        """Set the lambert second DV object."""
+        self.lambertSecondDvObject.lambertSolutionInMsg.subscribeTo(self.lambertSolverObject.lambertSolutionOutMsg)
+        self.lambertSecondDvObject.desiredVelocityInMsg.subscribeTo(
+            self.lambertSurfaceRelativeVelocityObject.desiredVelocityOutMsg)
+        self.lambertSecondDvObject.dvBurnCmdOutMsg = self.dvBurnCmdMsg
+
     # Global call to initialize every module
     def InitAllFSWObjects(self, SimBase):
         """Initialize all the FSW objects"""
@@ -339,6 +480,11 @@ class BSKFswModels:
         self.SetMRPSteering()
         self.SetRateServo(SimBase)
         self.SetRWMotorTorque()
+        self.SetLambertPlannerObject(SimBase)
+        self.SetLambertSolverObject()
+        self.SetLambertValidatorObject(SimBase)
+        self.SetLambertSurfaceRelativeVelocityObject(SimBase)
+        self.SetLambertSecondDvObject()
 
     def setupGatewayMsgs(self, SimBase):
         """create C-wrapped gateway messages such that different modules can write to this message
@@ -348,6 +494,9 @@ class BSKFswModels:
         self.attRefMsg = messaging.AttRefMsg_C()
         self.attGuidMsg = messaging.AttGuidMsg_C()
         self.cmdRwMotorMsg = messaging.ArrayMotorTorqueMsg_C()
+
+        # C++ wrapped gateway messages
+        self.dvBurnCmdMsg = messaging.DvBurnCmdMsg()
 
         self.zeroGateWayMsgs()
 
@@ -362,211 +511,4 @@ class BSKFswModels:
         self.attRefMsg.write(messaging.AttRefMsgPayload())
         self.attGuidMsg.write(messaging.AttGuidMsgPayload())
         self.cmdRwMotorMsg.write(messaging.ArrayMotorTorqueMsgPayload())
-
-    @property
-    def inertial3DData(self):
-        return self.inertial3D
-
-    inertial3DData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to inertial3DData as inertial3D",
-        inertial3DData)
-
-    @property
-    def inertial3DWrap(self):
-        return self.inertial3D
-
-    inertial3DWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to inertial3DWrap as inertial3D",
-        inertial3DWrap)
-
-
-    @property
-    def hillPointData(self):
-        return self.hillPoint
-
-    hillPointData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to hillPointData as hillPoint",
-        hillPointData)
-
-    @property
-    def hillPointWrap(self):
-        return self.hillPoint
-
-    hillPointWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to hillPointWrap as hillPoint",
-        hillPointWrap)
-
-
-    @property
-    def sunSafePointData(self):
-        return self.sunSafePoint
-
-    sunSafePointData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to sunSafePointData as sunSafePoint",
-        sunSafePointData)
-
-    @property
-    def sunSafePointWrap(self):
-        return self.sunSafePoint
-
-    sunSafePointWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to sunSafePointWrap as sunSafePoint",
-        sunSafePointWrap)
-
-
-    @property
-    def velocityPointData(self):
-        return self.velocityPoint
-
-    velocityPointData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to velocityPointData as velocityPoint",
-        velocityPointData)
-
-    @property
-    def velocityPointWrap(self):
-        return self.velocityPoint
-
-    velocityPointWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to velocityPointWrap as velocityPoint",
-        velocityPointWrap)
-
-
-    @property
-    def cssWlsEstData(self):
-        return self.cssWlsEst
-
-    cssWlsEstData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to cssWlsEstData as cssWlsEst",
-        cssWlsEstData)
-
-    @property
-    def cssWlsEstWrap(self):
-        return self.cssWlsEst
-
-    cssWlsEstWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to cssWlsEstWrap as cssWlsEst",
-        cssWlsEstWrap)
-
-
-    @property
-    def trackingErrorData(self):
-        return self.trackingError
-
-    trackingErrorData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to trackingErrorData as trackingError",
-        trackingErrorData)
-
-    @property
-    def trackingErrorWrap(self):
-        return self.trackingError
-
-    trackingErrorWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to trackingErrorWrap as trackingError",
-        trackingErrorWrap)
-
-
-    @property
-    def mrpFeedbackControlData(self):
-        return self.mrpFeedbackControl
-
-    mrpFeedbackControlData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackControlData as mrpFeedbackControl",
-        mrpFeedbackControlData)
-
-    @property
-    def mrpFeedbackControlWrap(self):
-        return self.mrpFeedbackControl
-
-    mrpFeedbackControlWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackControlWrap as mrpFeedbackControl",
-        mrpFeedbackControlWrap)
-
-
-    @property
-    def mrpFeedbackRWsData(self):
-        return self.mrpFeedbackRWs
-
-    mrpFeedbackRWsData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackRWsData as mrpFeedbackRWs",
-        mrpFeedbackRWsData)
-
-    @property
-    def mrpFeedbackRWsWrap(self):
-        return self.mrpFeedbackRWs
-
-    mrpFeedbackRWsWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpFeedbackRWsWrap as mrpFeedbackRWs",
-        mrpFeedbackRWsWrap)
-
-
-    @property
-    def mrpSteeringData(self):
-        return self.mrpSteering
-
-    mrpSteeringData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpSteeringData as mrpSteering",
-        mrpSteeringData)
-
-    @property
-    def mrpSteeringWrap(self):
-        return self.mrpSteering
-
-    mrpSteeringWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to mrpSteeringWrap as mrpSteering",
-        mrpSteeringWrap)
-
-
-    @property
-    def rateServoData(self):
-        return self.rateServo
-
-    rateServoData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rateServoData as rateServo",
-        rateServoData)
-
-    @property
-    def rateServoWrap(self):
-        return self.rateServo
-
-    rateServoWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rateServoWrap as rateServo",
-        rateServoWrap)
-
-
-    @property
-    def rwMotorTorqueData(self):
-        return self.rwMotorTorque
-
-    rwMotorTorqueData = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rwMotorTorqueData as rwMotorTorque",
-        rwMotorTorqueData)
-
-    @property
-    def rwMotorTorqueWrap(self):
-        return self.rwMotorTorque
-
-    rwMotorTorqueWrap = deprecated.DeprecatedProperty(
-        "2024/07/30",
-        "Due to the new C module syntax, refer to rwMotorTorqueWrap as rwMotorTorque",
-        rwMotorTorqueWrap)
+        self.dvBurnCmdMsg.write(messaging.DvBurnCmdMsgPayload())

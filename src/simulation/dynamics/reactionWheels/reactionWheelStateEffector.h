@@ -62,7 +62,7 @@ public:
 	void WriteOutputMessages(uint64_t CurrentClock);
 	void ReadInputs();
 	void ConfigureRWRequests(double CurrentTime);
-    
+
 public:
 	std::vector<RWConfigMsgPayload *> ReactionWheelData;          //!< -- RW information
 
@@ -82,12 +82,33 @@ private:
     ArrayMotorTorqueMsgPayload incomingCmdBuffer = {};          //!< -- One-time allocation for savings
 	uint64_t prevCommandTime;                                   //!< -- Time for previous valid thruster firing
 
-	StateData *hubSigma;                                        //!< class variable
-	StateData *hubOmega;                                        //!< class variable
-	StateData *hubVelocity;                                     //!< class variable
 	StateData *OmegasState;                                     //!< class variable
 	StateData *thetasState;                                     //!< class variable
     Eigen::MatrixXd *g_N;           //!< [m/s^2] Gravitational acceleration in N frame components
+
+    double maxWheelAcceleration = 1.0e6;    //!< [rad/s^2] Maximum allowed wheel acceleration to prevent numerical instability
+    double largeTorqueThreshold = 10.0;     //!< [Nm] Threshold for warning about large torque with unlimited torque setting
+
+public:
+    /*! @brief Get the maximum wheel acceleration threshold
+     * @return Maximum wheel acceleration in rad/s^2
+     */
+    double getMaxWheelAcceleration() const { return maxWheelAcceleration; }
+
+    /*! @brief Set the maximum wheel acceleration threshold
+     * @param val New maximum wheel acceleration value in rad/s^2
+     */
+    void setMaxWheelAcceleration(double val) { maxWheelAcceleration = val; }
+
+    /*! @brief Get the large torque threshold for unlimited torque warning
+     * @return Large torque threshold in Nm
+     */
+    double getLargeTorqueThreshold() const { return largeTorqueThreshold; }
+
+    /*! @brief Set the large torque threshold for unlimited torque warning
+     * @param val New large torque threshold value in Nm
+     */
+    void setLargeTorqueThreshold(double val) { largeTorqueThreshold = val; }
 
 };
 

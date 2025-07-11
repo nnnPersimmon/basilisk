@@ -34,18 +34,22 @@ CppModuleTemplate::~CppModuleTemplate()
 
 
 /*! This method is used to reset the module.
-    @return void
+
  */
 void CppModuleTemplate::Reset(uint64_t CurrentSimNanos)
 {
     /*! - reset any required variables */
     this->dummy = 0.0;
     bskLogger.bskLog(BSK_INFORMATION, "Variable dummy set to %f in reset.",this->dummy);
+
+    /* zero output message on reset */
+    CModuleTemplateMsgPayload outMsgBuffer={};       /*!< local output message copy */
+    this->dataOutMsg.write(&outMsgBuffer, this->moduleID, CurrentSimNanos);
 }
 
 
 /*! This is the main method that gets called every time the module is updated.  Provide an appropriate description.
-    @return void
+
  */
 void CppModuleTemplate::UpdateState(uint64_t CurrentSimNanos)
 {

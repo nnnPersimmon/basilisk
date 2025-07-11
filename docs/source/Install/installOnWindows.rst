@@ -6,18 +6,17 @@
 Setup On Windows
 ================
 
-The following was developed using Windows 7 and Visual Studio Community 15 2017 or 16 2019.
+The following was developed using Windows 11 and Visual Studio Community 17 2022.
 
 Software setup
 --------------
 
 In order to run Basilisk, the following software will be necessary:
 
--  `Cmake <https://cmake.org/>`__ 3.14 or higher.  Make sure you can execute this
-   program from the command line
--  `Python <https://www.python.org/downloads/windows/>`__ 3.8.x or greater
+-  `Python <https://www.python.org/downloads/windows/>`__ 3.8 to 3.13.
+   Version 3.8 is deprecated and will be removed April 2026.
 -  `pip <https://pip.pypa.io/en/stable/installing/>`__
--  Visual Studios 15 2017 or greater
+-  Default compiler is Visual Studios 17 2022
 -  `Swig <http://www.swig.org/download.html>`__ version 4.X
 -  (Optional) A GiT GUI application such as `GitKraken <https://www.gitkraken.com>`__
    to manage your copy of the Basilisk repository
@@ -69,7 +68,6 @@ Add SWIG and Basilisk paths into environment variables using the following steps
 
     - Add the ``swig.exe`` directory to your path.  See this `site <https://stackoverflow.com/questions/48382254/cmake-error-could-not-find-swig-missing-swig-dir>`__
       for more info on setting paths for swig.
-    - add the path to ``CMake\bin``, such as ``C:\Program Files\CMake\bin``
     - Add the Basilisk library directory (``path2bsk/dist3/Basilisk``) to your path. Here,
       ``path2bsk`` is replaced with the actual path to the Basilisk folder.  Note, the ``dist3`` folder does not
       exist to begin with, but is created automatically when configuring Basilisk with ``python conanfile.py``
@@ -84,7 +82,7 @@ Example added path formats::
 
 .. note::
 
-    If any environment variables have been modified (``cmake``, ``swig``, ``path2bsk`` paths),
+    If any environment variables have been modified (``swig``, ``path2bsk`` paths),
     Command Prompt needs
     to be closed and rebooted (and a machine reboot MAY be needed) for the change to take effect.
 
@@ -113,39 +111,30 @@ steps work regardless if done within a virtual environment or not.
 
      $ .venv\Scripts\activate
 
-   If the virtual environment is activated, users will see (venv) before the prompt
+   If the virtual environment is activated, users will see (.venv) before the prompt
 
 #. Deactivate the virtual environment to return to the normal operating system environment::
 
-     (venv) $ deactivate
+     (.venv) $ deactivate
 
 
 Installing required python support packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #. Basilisk uses conan for package managing. In order to do so, users
-   must ensure ``wheel`` is installed and install ``conan``::
+   must first install all build related pip packages using::
 
-       (venv) $ pip install wheel 'conan<2.0'
+       (.venv) $ pip install -r requirements_dev.txt
 
-   The conan repositories information is automatically setup by ``conanfile.py``.
-
+   The ``conan`` repositories information is automatically setup by ``conanfile.py``.
 
    .. warning::
 
       Don't use the ``conan`` binary installed from the `conan web site <https://conan.io/downloads.html>`__.
       This causes several issues with the current build system.
 
-
-   .. warning::
-
-      If you are upgrading from a version of Basilisk prior to 1.8.0, be sure to delete the ``.conan`` folder in your
-      home directory to create a clean copy compatible with the current build system.
-
 #. The required python packages for Basilisk will be installed automatically when running ``conanfile.py``.
 
-#. `Optional Packages:` The above directions install the Basilisk base software.
-   There are a series of :ref:`optional packages<installOptionalPackages>` that enhance this capability.
 
 Build Project Process via Command line
 --------------------------------------
@@ -155,9 +144,9 @@ When all the prerequisite installations are complete, the project can be built a
 #. The ``conanfile.py`` will setup, configure and run the Basilisk build.  For a basic installation,
    from the root Basilisk folder use::
 
-    (venv) $ python conanfile.py
+    (.venv) $ python conanfile.py
 
-   This creates the Visual Studio 16 2019 IDE project in ``dist3`` and builds the project.
+   This creates the Visual Studio 17 2022 IDE project in ``dist3`` and builds the project.
    You can also specify the generator directly in this build process and select other versions of Visual Studio.
    For other configure and build options, including running ``cmake`` directly, see :ref:`configureBuild`.
    This process will verify that the minimum required Basilisk python packages are installed, and that
@@ -166,10 +155,9 @@ When all the prerequisite installations are complete, the project can be built a
 
    .. note::
 
-        The default Window compiler is Visual Studio 16.  If you had VS 17 installed and downgraded to VS 16,
-        then the system might still find VS 17 and give an error when running the above command.
-        If you want to compile with latest VS 17, then use
-        ``python conanfile.py --generator "Visual Studio 17 2022"``.
+        The default Window compiler is Visual Studio 17.
+        If you want to compile with VS 16, then use
+        ``python conanfile.py --generator "Visual Studio 16 2019"``.
 
    .. note::
 
@@ -183,7 +171,7 @@ When all the prerequisite installations are complete, the project can be built a
       current directory.
    -  Run one of the tutorial scenarios, such as::
 
-       (venv) $ python scenarioBasicOrbit.py
+       (.venv) $ python scenarioBasicOrbit.py
 
 
 
@@ -209,4 +197,4 @@ using:
          :scale: 50%
 
    -  Change the active config to Release instead of debug for solution properties.
-   -  Within Visual Studio now go under `Build menu/Build Solution` to build.
+   -  Within Visual Studio now go under ``Build menu/Build Solution`` to build.

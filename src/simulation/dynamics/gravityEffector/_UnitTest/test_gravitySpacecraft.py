@@ -50,7 +50,12 @@ import pytest
                                       ])
 def test_gravityEffectorAllTest(show_plots, function):
     """Module Unit Test"""
-    [testResults, testMessage] = eval(function + '(show_plots)')
+    testFunction = globals().get(function)
+
+    if testFunction is None:
+        raise ValueError(f"Function '{function}' not found in global scope")
+
+    [testResults, testMessage] = testFunction(show_plots)
     assert testResults < 1, testMessage
 
 
@@ -121,8 +126,8 @@ def singleGravityBody(show_plots):
 
     unitTestSim.InitializeSimulation()
 
-    posRef = scObject.dynManager.getStateObject("hubPosition")
-    velRef = scObject.dynManager.getStateObject("hubVelocity")
+    posRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubPosition)
+    velRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubVelocity)
 
     scObject.hub.mHub = 100
     scObject.hub.r_BcB_B = [[0.0], [0.0], [0.0]]
@@ -244,8 +249,8 @@ def multiBodyGravity(show_plots):
 
     unitTestSim.InitializeSimulation()
 
-    posRef = scObject.dynManager.getStateObject("hubPosition")
-    velRef = scObject.dynManager.getStateObject("hubVelocity")
+    posRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubPosition)
+    velRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubVelocity)
 
     dt = 50.0
     totalTime = 20000.0
@@ -335,7 +340,7 @@ def polyGravityBody(show_plots):
     DynUnitTestProc.addTask(unitTestSim.CreateNewTask(unitTaskName, macros.sec2nano(intTime)))
 
     # specify orbit of polyhedral body
-    oePolyBody = planetEphemeris.ClassicElementsMsgPayload()
+    oePolyBody = planetEphemeris.ClassicElements()
     oePolyBody.a = 2.3612 * orbitalMotion.AU * 1000
     oePolyBody.e = 0
     oePolyBody.i = 0*macros.D2R

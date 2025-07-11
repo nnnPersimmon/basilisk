@@ -40,6 +40,17 @@ to-scale model for the defined scenario.
 Illustration of Simulation Results
 ----------------------------------
 
+.. raw:: html
+
+   <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;
+   max-width: 100%; height: auto;">
+        <iframe src="https://www.youtube.com/embed/4mMCCTVHZkA?si=L3Pj9dfy7a8DSwjQ"
+        style="position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;" frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media;
+        gyroscope; picture-in-picture" allowfullscreen></iframe>
+    </div>
+
 .. image:: /_images/Scenarios/scenarioRoboticArm_theta.svg
    :align: center
 
@@ -167,7 +178,6 @@ def createFirstLink(scSim, spinningBodyEffector, scGeometry):
     hingedRigidBodyMessageData.theta = -30 * macros.D2R  # [rad]
     hingedRigidBodyMessageData.thetaDot = 0.0  # [rad/s]
     hingedRigidBodyMessage1 = messaging.HingedRigidBodyMsg().write(hingedRigidBodyMessageData)
-    hingedRigidBodyMessage1.this.disown()
     profiler.spinningBodyInMsg.subscribeTo(hingedRigidBodyMessage1)
 
     spinningBody = spinningBodyNDOFStateEffector.SpinningBody()
@@ -197,7 +207,6 @@ def createFirstLink(scSim, spinningBodyEffector, scGeometry):
     hingedRigidBodyMessageData.theta = 45 * macros.D2R  # [rad]
     hingedRigidBodyMessageData.thetaDot = 0.0  # [rad/s]
     hingedRigidBodyMessage2 = messaging.HingedRigidBodyMsg().write(hingedRigidBodyMessageData)
-    hingedRigidBodyMessage2.this.disown()
     profiler.spinningBodyInMsg.subscribeTo(hingedRigidBodyMessage2)
 
 
@@ -227,7 +236,6 @@ def createSecondLink(scSim, spinningBodyEffector, scGeometry):
     hingedRigidBodyMessageData.theta = 90 * macros.D2R  # [rad]
     hingedRigidBodyMessageData.thetaDot = 0.0  # [rad/s]
     hingedRigidBodyMessage1 = messaging.HingedRigidBodyMsg().write(hingedRigidBodyMessageData)
-    hingedRigidBodyMessage1.this.disown()
     profiler.spinningBodyInMsg.subscribeTo(hingedRigidBodyMessage1)
 
     spinningBody = spinningBodyNDOFStateEffector.SpinningBody()
@@ -257,7 +265,6 @@ def createSecondLink(scSim, spinningBodyEffector, scGeometry):
     hingedRigidBodyMessageData.theta = -20 * macros.D2R  # [rad]
     hingedRigidBodyMessageData.thetaDot = 0.0  # [rad/s]
     hingedRigidBodyMessage2 = messaging.HingedRigidBodyMsg().write(hingedRigidBodyMessageData)
-    hingedRigidBodyMessage2.this.disown()
     profiler.spinningBodyInMsg.subscribeTo(hingedRigidBodyMessage2)
 
 

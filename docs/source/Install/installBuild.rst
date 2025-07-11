@@ -91,11 +91,19 @@ The script accepts the following options to customize this process.
     * - ``allOptPkg``
       -
       - None
-      - If flag is set the all optional Basilisk python package depenencies are installed
+      - If flag is set the Basilisk python package depenencies to build documentation are installed
     * - ``pathToExternalModules``
       - String
       - Empty
       - path to external modules folder, see :ref:`buildExtModules`
+    * - ``mujoco``
+      - Boolean
+      - False
+      - :beta:`Mujoco Support` Includes the `MuJoCo <https://mujoco.org>`_ dependencies
+    * - ``mujocoReplay``
+      - Boolean
+      - False
+      - :beta:`Mujoco Support` Includes the `MuJoCo <https://mujoco.org>`_ visualization dependencies
 
 Thus, for example, to create a build with ``opNav`` modes enabled, but no :ref:`vizInterface`, and using a
 clean distribution folder, and that is built right away, you could use::
@@ -138,8 +146,7 @@ To run all tests execute the following from the project root directory
 
     python run_all_test.py
 
-To run only the python test use the following commands.  Please see :ref:`installOptionalPackages` on how to
-run an optional multi-processing version of ``pytest``.
+To run only the python test use the following commands.
 
 .. code-block:: console
 

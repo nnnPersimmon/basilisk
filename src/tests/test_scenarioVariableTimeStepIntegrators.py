@@ -31,7 +31,14 @@ import os
 import sys
 
 import pytest
+
+import numpy as np
+import numpy.testing as npt
+
 from Basilisk.utilities import unitTestSupport
+from Basilisk.utilities import orbitalMotion
+from Basilisk.utilities import simIncludeGravBody
+from Basilisk.utilities import macros
 
 # Get current file path
 filename = inspect.getframeinfo(inspect.currentframe()).filename
@@ -40,72 +47,48 @@ path = os.path.dirname(os.path.abspath(filename))
 sys.path.append(path + '/../../examples')
 import scenarioVariableTimeStepIntegrators
 
-
-# uncomment this line is this test is to be skipped in the global unit test run, adjust message as needed
-# @pytest.mark.skipif(conditionstring)
-# uncomment this line if this test has an expected failure, adjust message as needed
-# @pytest.mark.xfail(True, reason="Scott's brain no-worky\n")
-# The following 'parametrize' function decorator provides the parameters and expected results for each
-#   of the multiple test runs for this test.
-# @pytest.mark.parametrize("integratorCase", ["rk4", "rkf45", "euler", "rk2"])
 @pytest.mark.scenarioTest
 def test_scenarioIntegrators(show_plots):
-    """This function is called by the py.test environment."""
+    """This function is called by the pytest environment."""
 
-    testFailCount = 0  # zero unit test result counter
-    testMessages = []  # create empty array to store test log messages
-
-    # for integratorCase in ["rk4", "rkf45", "rkf78"]:
-    for integratorCase in ["rk4", "rkf45", "rkf78"]:
+    for integratorCase in ["rkf45", "rkf78"]:
 
         # each test method requires a single assert method to be called
-        posData, figureList = scenarioVariableTimeStepIntegrators.run(show_plots, integratorCase, 1e-4, 1e-8)
+        timeData, posData, velData, figureList = scenarioVariableTimeStepIntegrators.run(show_plots, integratorCase, 1e-8, 1e-12)
 
-        numTruthPoints = 5
-        skipValue = int(len(posData) / (numTruthPoints - 1))
-        dataPosRed = posData[::skipValue]
+        analyticalPos = getAnalyticalSolution(posData[0,:], velData[0,:], timeData[-1] * macros.NANO2SEC)
 
-        # setup truth data for unit test
-        if integratorCase == "rk4":
-            truePos = [
-                [2.6965319797723856e+07, -4.0438014777803928e+07, -3.0909521009497888e+07]
-                , [-1.8150865907367039e+08, -6.3070994959505990e+07,  6.1267912683989421e+07]
-                , [-1.9303770991326889e+08, -1.5676982514195076e+08,  2.5889371222740099e+07]
-                , [-9.5984840659665108e+07, -1.6150850904769760e+08, -2.3710817876644962e+07]
-            ]
-        if integratorCase == "rkf45":
-            truePos = [
-                [2.6965319797723856e+07, -4.0438014777803928e+07, -3.0909521009497888e+07]
-                , [-1.9213449717316824e+08, -5.6224612680104271e+07,  6.9468790545288116e+07]
-                , [-2.3287921820332012e+08, -1.5541450266266349e+08,  4.5992609018449008e+07]
-                , [-1.8429335189943227e+08, -1.9670820137819085e+08,  4.1211605646267980e+06]
-            ]
-        if integratorCase == "rkf78":
-            truePos = [
-                [2.6965319797723856e+07, -4.0438014777803928e+07, -3.0909521009497888e+07]
-                , [-1.9213620487859124e+08, -5.6231399937485360e+07, 6.9466655120191082e+07]
-                , [-2.3288519890219730e+08, -1.5542401305950305e+08, 4.5991373747153923e+07]
-                , [-1.8431058338898057e+08, -1.9672328628053436e+08, 4.1229939645756241e+06]
-            ]
+        absTolerance = {
+            "rkf45": 2000,  # m
+            "rkf78": 100  # m
+        }
 
-    # compare the results to the truth values
-    accuracy = 1.0  # meters
-
-    testFailCount, testMessages = unitTestSupport.compareArray(
-        truePos, dataPosRed, accuracy, "r_BN_N Vector",
-        testFailCount, testMessages)
+        npt.assert_allclose(
+            posData[-1, :],
+            analyticalPos,
+            rtol=0,
+            atol=absTolerance[integratorCase],
+            err_msg = "r_BN_N Vector, case: " + integratorCase
+        )
 
     # save the figures to the Doxygen scenario images folder
     for pltName, plt in list(figureList.items()):
         unitTestSupport.saveScenarioFigure(pltName, plt, path)
 
-    #   print out success message if no error were found
-    if testFailCount == 0:
-        print("PASSED ")
-    else:
-        print(testFailCount)
-        print(testMessages)
+def getAnalyticalSolution(r0, v0, dt):
+    mu = simIncludeGravBody.gravBodyFactory().createEarth().mu
+    oe = orbitalMotion.rv2elem(mu, r0, v0)
 
-    # each test method requires a single assert method to be called
-    # this check below just makes sure no sub-test failures were found
-    assert testFailCount < 1, testMessages
+    E0 = orbitalMotion.f2E(oe.f, oe.e)
+    M0 = orbitalMotion.E2M(E0, oe.e)
+    Mf = M0 + np.sqrt(mu / oe.a / oe.a / oe.a) * dt
+    Ef = orbitalMotion.M2E(Mf, oe.e)
+    ff = orbitalMotion.E2f(Ef, oe.e)
+
+    oe.f = ff
+
+    rF, _ = orbitalMotion.elem2rv(mu, oe)
+    return rF
+
+if __name__ == "__main__":
+    pytest.main([__file__, "--tb=native"])

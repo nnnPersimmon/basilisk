@@ -16,7 +16,7 @@
  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  */
-%module sim_model
+%module("threads"=1) sim_model
 %{
    #include "sim_model.h"
 %}
@@ -70,10 +70,10 @@ namespace std {
         SWIG_exception(SWIG_RuntimeError, e.what());
     } catch (const std::string& e) {
         SWIG_exception(SWIG_RuntimeError, e.c_str());
-    } 
+    }
 }
 
-%include "sys_model_task.h"
+%include "architecture/_GeneralModuleFiles/sys_model_task.h"
 %include "sys_model.h"
 %include "sys_process.h"
 %include "sim_model.h"

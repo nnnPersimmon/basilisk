@@ -18,7 +18,7 @@
  */
 #include "simulation/environment/spiceInterface/spiceInterface.h"
 #include <sstream>
-#include "../libs/cspice/include/SpiceUsr.h"
+#include "SpiceUsr.h"
 #include <string.h>
 #include "architecture/utilities/simDefinitions.h"
 #include "architecture/utilities/macroDefinitions.h"
@@ -88,7 +88,7 @@ void SpiceInterface::clearKeeper()
 
 
 /*! Reset the module to origina configuration values.
- @return void
+
  */
 void SpiceInterface::Reset(uint64_t CurrenSimNanos)
 {
@@ -122,7 +122,7 @@ void SpiceInterface::Reset(uint64_t CurrenSimNanos)
     this->timeDataInit = true;
 
     std::vector<SpicePlanetStateMsgPayload>::iterator planit;
-    int c = 0;  // celestial object counter
+    size_t c = 0;  // celestial object counter
     int autoFrame;  // flag to set the frame automatically
     SpiceChar *name = new SpiceChar[this->charBufferSize];
     SpiceBoolean frmFound;
@@ -156,7 +156,7 @@ void SpiceInterface::Reset(uint64_t CurrenSimNanos)
 /*! This method is used to initialize the zero-time that will be used to
  calculate all system time values in the Update method.  It also creates the
  output message for time data
- @return void
+
  */
 void SpiceInterface::initTimeData()
 {
@@ -189,7 +189,7 @@ void SpiceInterface::initTimeData()
 /*! This method computes the GPS time data for the current elapsed time.  It uses
  the total elapsed times at both the GPS epoch time and the current time to
  compute the GPS time (week, seconds, rollovers)
- @return void
+
  */
 void SpiceInterface::computeGPSData()
 {
@@ -210,7 +210,7 @@ void SpiceInterface::computeGPSData()
 /*! This method takes the values computed in the model and outputs them.
  It packages up the internal variables into the output structure definitions
  and puts them out on the messaging system
- @return void
+
  @param CurrentClock The current simulation time (used for time stamping)
  */
 void SpiceInterface::writeOutputMessages(uint64_t CurrentClock)
@@ -257,7 +257,7 @@ void SpiceInterface::writeOutputMessages(uint64_t CurrentClock)
 /*! This method is the interface point between the upper level simulation and
  the SPICE interface at runtime.  It calls all of the necessary lower level
  methods.
- @return void
+
  @param CurrentSimNanos The current clock time for the simulation
  */
 void SpiceInterface::UpdateState(uint64_t CurrentSimNanos)
@@ -368,7 +368,7 @@ void SpiceInterface::addSpacecraftNames(std::vector<std::string> spacecraftNames
 
 /*! This method gets the state of each spice item that has been added to the module
  and saves the information off into the array.
- @return void
+
  */
 void SpiceInterface::pullSpiceData(std::vector<SpicePlanetStateMsgPayload> *spiceData)
 {
@@ -381,7 +381,7 @@ void SpiceInterface::pullSpiceData(std::vector<SpicePlanetStateMsgPayload> *spic
      -# Convert the pos/vel over to meters.
      -# Time stamp the message appropriately
      */
-    int c = 0; // celestial body counter
+    size_t c = 0; // celestial body counter
     for(planit = spiceData->begin(); planit != spiceData->end(); planit++)
     {
         double lighttime;

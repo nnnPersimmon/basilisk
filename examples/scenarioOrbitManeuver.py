@@ -158,13 +158,21 @@ def run(show_plots, maneuverCase):
     # add spacecraft object to the simulation process
     scSim.AddModelToTask(simTaskName, scObject)
 
-    # setup Gravity Body
+    # setup Gravity Body and SPICE definitions
     gravFactory = simIncludeGravBody.gravBodyFactory()
     earth = gravFactory.createEarth()
     earth.isCentralBody = True  # ensure this is the central gravitational body
 
     # attach gravity model to spacecraft
     gravFactory.addBodiesTo(scObject)
+
+    # setup spice library for Earth ephemeris
+    timeInitString = "2024 September 21, 21:00:00.0 TDB"
+    spiceObject = gravFactory.createSpiceInterface(time=timeInitString, epochInMsg=True)
+    spiceObject.zeroBase = 'Earth'
+
+    # need spice to run before spacecraft module as it provides the spacecraft translational states
+    scSim.AddModelToTask(simTaskName, spiceObject)
 
     #
     #   setup orbit and simulation time
@@ -204,7 +212,10 @@ def run(show_plots, maneuverCase):
                                                   # , saveFile=fileName
                                                   )
         viz.settings.mainCameraTarget = "earth"
-        viz.settings.trueTrajectoryLinesOn = 1
+        viz.settings.showCelestialBodyLabels = 1
+        viz.settings.showSpacecraftLabels = 1
+        viz.settings.truePathRelativeBody = "earth"
+        viz.settings.trueTrajectoryLinesOn = 3  # relative to celestial body inertial frame
 
     #
     #   initialize Simulation
@@ -214,8 +225,8 @@ def run(show_plots, maneuverCase):
     #
     #  get access to dynManager translational states for future access to the states
     #
-    posRef = scObject.dynManager.getStateObject("hubPosition")
-    velRef = scObject.dynManager.getStateObject("hubVelocity")
+    posRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubPosition)
+    velRef = scObject.dynManager.getStateObject(scObject.hub.nameOfHubVelocity)
 
     # The dynamics simulation is setup using a Spacecraft() module with the Earth's
     # gravity module attached.  Note that the rotational motion simulation is turned off to leave
@@ -290,6 +301,9 @@ def run(show_plots, maneuverCase):
     # run simulation for 3rd chunk
     scSim.ConfigureStopTime(simulationTime + T2 + T3)
     scSim.ExecuteSimulation()
+
+    # unload Spice kernel
+    gravFactory.unloadSpiceKernels()
 
     #
     #   retrieve the logged data

@@ -34,7 +34,7 @@ OrbElemConvert::~OrbElemConvert()
 
 
 /*! This method is used to reset the module.
- @return void
+
  */
 void OrbElemConvert::Reset(uint64_t CurrentSimNanos)
 {
@@ -63,13 +63,24 @@ void OrbElemConvert::Reset(uint64_t CurrentSimNanos)
 /*! This method writes the output data out into the messaging system.  It does
  switch depending on whether it is outputting cartesian position/velocity or
  orbital elements.
- @return void
+
  @param CurrentClock The current time in the system for output stamping
  */
 void OrbElemConvert::WriteOutputMessages(uint64_t CurrentClock)
 {
     if (this->elemOutMsg.isLinked() && this->inputsGood) {
-        this->elemOutMsg.write(&this->CurrentElem, this->moduleID, CurrentClock);
+        auto payload = ClassicElementsMsgPayload();
+        payload.a = this->CurrentElem.a;
+        payload.e = this->CurrentElem.e;
+        payload.i = this->CurrentElem.i;
+        payload.Omega = this->CurrentElem.Omega;
+        payload.omega = this->CurrentElem.omega;
+        payload.f = this->CurrentElem.f;
+        payload.rmag = this->CurrentElem.rmag;
+        payload.alpha = this->CurrentElem.alpha;
+        payload.rPeriap = this->CurrentElem.rPeriap;
+        payload.rApoap = this->CurrentElem.rApoap;
+        this->elemOutMsg.write(&payload, this->moduleID, CurrentClock);
     }
     if (this->scStateOutMsg.isLinked() && this->inputsGood) {
         SCStatesMsgPayload scMsg;
@@ -88,7 +99,7 @@ void OrbElemConvert::WriteOutputMessages(uint64_t CurrentClock)
 }
 
 /*! The name kind of says it all right?  Converts CurrentElem to pos/vel.
- @return void
+
  */
 void OrbElemConvert::Elements2Cartesian()
 {
@@ -96,7 +107,7 @@ void OrbElemConvert::Elements2Cartesian()
 }
 
 /*! The name kind of says it all right?  Converts pos/vel to CurrentElem.
- @return void
+
  */
 void OrbElemConvert::Cartesian2Elements()
 {
@@ -105,13 +116,25 @@ void OrbElemConvert::Cartesian2Elements()
 
 /*! This method reads the input message in from the system and sets the
  appropriate parameters based on which direction the module is running
- @return void
+
  */
 void OrbElemConvert::ReadInputs()
 {
     this->inputsGood = false;
     if (this->elemInMsg.isLinked()) {
-        this->CurrentElem = this->elemInMsg();
+        auto elements = ClassicElements();
+        auto inputElement = this->elemInMsg();
+        elements.a = inputElement.a;
+        elements.e = inputElement.e;
+        elements.i = inputElement.i;
+        elements.Omega = inputElement.Omega;
+        elements.omega = inputElement.omega;
+        elements.f = inputElement.f;
+        elements.rmag = inputElement.rmag;
+        elements.alpha = inputElement.alpha;
+        elements.rPeriap = inputElement.rPeriap;
+        elements.rApoap = inputElement.rApoap;
+        this->CurrentElem = elements;
         this->inputsGood = this->elemInMsg.isWritten();
     }
 
@@ -133,7 +156,7 @@ void OrbElemConvert::ReadInputs()
 /*! This method is the main carrier for the conversion routine.  If it detects
  that it needs to re-init (direction change maybe) it will re-init itself.
  The it either converts elements to cartesian or cartesian to elements.
- @return void
+
  @param CurrentSimNanos The current simulation time for system
  */
 void OrbElemConvert::UpdateState(uint64_t CurrentSimNanos)

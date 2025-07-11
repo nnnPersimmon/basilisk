@@ -28,7 +28,7 @@
 /*! This method initializes the configData for this module.
  It checks to ensure that the inputs are sane and then creates the
  output message
- @return void
+
  @param configData The configuration data associated with this module
  @param moduleID The Basilisk module identifier
  */
@@ -43,7 +43,7 @@ void SelfInit_spacecraftReconfig(spacecraftReconfigConfig *configData, int64_t m
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.  The local copy of the
  message output buffer should be cleared.
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The Basilisk module identifier
@@ -77,7 +77,7 @@ void Reset_spacecraftReconfig(spacecraftReconfigConfig *configData, uint64_t cal
 }
 
 /*! Add a description of what this main Update() routine does for this module
- @return void
+
  @param configData The configuration data associated with the module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The Basilisk module identifier
@@ -108,7 +108,7 @@ void Update_spacecraftReconfig(spacecraftReconfigConfig *configData, uint64_t ca
 		configData->prevCallTime = callTime; // initialize
 	}
     // calculate elapsed time from last module updated time
-    double elapsed_time = ((double)(callTime - configData->prevCallTime)) * NANO2SEC;
+    double elapsed_time = diffNanoToSec(callTime, configData->prevCallTime);
     configData->tCurrent = configData->tCurrent + elapsed_time;
 	configData->prevCallTime = callTime;
 
@@ -131,7 +131,7 @@ void Update_spacecraftReconfig(spacecraftReconfigConfig *configData, uint64_t ca
 
 /*! based on burn schedule, this function creates a message of
  reference attitude and thruster on time
- @return void
+
  @param configData The configuration data associated with the module
  @param chiefTransMsgBuffer chief's position and velocity
  @param deputyTransMsgBuffer deputy's position and velocity
@@ -150,7 +150,7 @@ void UpdateManeuver(spacecraftReconfigConfig *configData, NavTransMsgPayload chi
                      uint64_t callTime, int64_t moduleID)
 {
     /* conversion from r,v to classical orbital elements */
-    classicElements oe_c, oe_d;
+    ClassicElements oe_c, oe_d;
     rv2elem(configData->mu,chiefTransMsgBuffer.r_BN_N,chiefTransMsgBuffer.v_BN_N,&oe_c);
     rv2elem(configData->mu,deputyTransMsgBuffer.r_BN_N,deputyTransMsgBuffer.v_BN_N,&oe_d);
 
@@ -302,7 +302,7 @@ double AdjustRange(double lower, double upper, double angle)
 
 /*! This function is used to sort an array of
  spacecraftReconfigConfigBurnInfo in ascending order.
- @return void
+
  @param n1
  @param n2
  */
@@ -324,15 +324,15 @@ int CompareTime(const void * n1, const void * n2)
 
 /*! This function is used to sort an array of
  spacecraftReconfigConfigBurnInfo in ascending order.
- @return void
+
  @param configData The configuration data associated with this module
  @param oe_c chief's orbital element
  @param oe_d deputy's orbital element
  @param thrustConfigMsgBuffer
  @param vehicleConfigMsgBuffer deputy's vehicle config information
  */
-void ScheduleDV(spacecraftReconfigConfig *configData,classicElements oe_c,
-                          classicElements oe_d, THRArrayConfigMsgPayload thrustConfigMsgBuffer, VehicleConfigMsgPayload vehicleConfigMsgBuffer)
+void ScheduleDV(spacecraftReconfigConfig *configData,ClassicElements oe_c,
+                          ClassicElements oe_d, THRArrayConfigMsgPayload thrustConfigMsgBuffer, VehicleConfigMsgPayload vehicleConfigMsgBuffer)
 {
     // calculation necessary variables
     double da     = oe_d.a - oe_c.a;
@@ -488,7 +488,7 @@ void ScheduleDV(spacecraftReconfigConfig *configData,classicElements oe_c,
     double M_d_dvrtp = M_d + configData->burnArrayInfoOutMsgBuffer.burnArray[0].t*n;
     double E_d_dvrtp = M2E(M_d_dvrtp, oe_d.e);
     double f_d_dvrtp = E2f(E_d_dvrtp, oe_d.e);
-    classicElements oe_d_dvrtp;
+    ClassicElements oe_d_dvrtp;
     oe_d_dvrtp   = oe_d;
     oe_d_dvrtp.f = f_d_dvrtp;
     double rVec_d_dvrtp[3], vVec_d_dvrtp[3], hVec_d_dvrtp[3],tVec_d_dvrtp[3];
@@ -524,7 +524,7 @@ void ScheduleDV(spacecraftReconfigConfig *configData,classicElements oe_c,
     double M_d_dvrta = M_d + configData->burnArrayInfoOutMsgBuffer.burnArray[1].t*n;
     double E_d_dvrta = M2E(M_d_dvrta, oe_d.e);
     double f_d_dvrta = E2f(E_d_dvrta, oe_d.e);
-    classicElements oe_d_dvrta;
+    ClassicElements oe_d_dvrta;
     oe_d_dvrta   = oe_d;
     oe_d_dvrta.f = f_d_dvrta;
     double rVec_d_dvrta[3], vVec_d_dvrta[3], hVec_d_dvrta[3],tVec_d_dvrta[3];
@@ -560,7 +560,7 @@ void ScheduleDV(spacecraftReconfigConfig *configData,classicElements oe_c,
     double M_d_dvn = M_d + configData->burnArrayInfoOutMsgBuffer.burnArray[2].t*n;
     double E_d_dvn = M2E(M_d_dvn, oe_d.e);
     double f_d_dvn = E2f(E_d_dvn, oe_d.e);
-    classicElements oe_d_dvn;
+    ClassicElements oe_d_dvn;
     oe_d_dvn = oe_d;
     oe_d_dvn.f = f_d_dvn;
     double rVec_d_dvn[3], vVec_d_dvn[3], hVec_d_dvn[3];

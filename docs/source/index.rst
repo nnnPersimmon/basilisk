@@ -8,17 +8,18 @@ Welcome to Basilisk: an Astrodynamics Simulation Framework
        :align: center
        :width: 100%
 
-.. important::
+.. tip::
 
-    With Basilisk v2.1.5 onwards the repository is moving from BitBucket to GitHub starting Dec. 13, 2022.
-    Notes on how to access the new repo location are found in  :ref:`pullCloneBSK`.
+   This documentation is for the latest release on ``develop``.
+   If you are looking for documenation for prior tagged releases, they can be found at
+   `here <https://hanspeterschaub.info/bskOlderDocs.html>`_.
 
 Architecture
 ------------
 
 .. sidebar:: Basilisk Info
 
-    .. image:: _images/static/Basilisk-Logo.svg
+    .. image:: _images/static/Basilisk-Logo.png
        :align: center
        :width: 300
 
@@ -204,6 +205,7 @@ Related Publications
    Learn
    Support
    Documentation/index
+   supportData
    ExternalSites
 
 .. toctree::

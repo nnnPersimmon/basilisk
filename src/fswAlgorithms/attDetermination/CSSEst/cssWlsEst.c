@@ -23,7 +23,7 @@
 #include <string.h>
 
 /*! This method initializes the configData for theCSS WLS estimator.
- @return void
+
  @param configData The configuration data associated with the CSS WLS estimator
  @param moduleID The module identifier
  */
@@ -38,7 +38,7 @@ void SelfInit_cssWlsEst(CSSWLSConfig *configData, int64_t moduleID)
 
 /*! This method performs a complete reset of the module.  Local module variables that retain
  time varying states between function calls are reset to their default values.
- @return void
+
  @param configData The configuration data associated with the guidance module
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The module identifier
@@ -79,7 +79,7 @@ void Reset_cssWlsEst(CSSWLSConfig *configData, uint64_t callTime, int64_t module
 /*! This method computes the post-fit residuals for the WLS estimate.  Note that
     everything has to have been allocated appropriately as this function operates
     directly on the arrays.
-    @return void
+
     @param cssMeas The measured values for the CSS sensors
     @param cssConfig The CSS configuration information
     @param wlsEst The WLS estimate computed for the CSS measurements
@@ -156,7 +156,7 @@ int computeWlsmn(int numActiveCss, double *H, double *W,
 
 /*! This method takes the parsed CSS sensor data and outputs an estimate of the
  sun vector in the ADCS body frame
- @return void
+
  @param configData The configuration data associated with the CSS estimator
  @param callTime The clock time at which the function was called (nanoseconds)
  @param moduleID The module identifier
@@ -186,7 +186,7 @@ void Update_cssWlsEst(CSSWLSConfig *configData, uint64_t callTime,
     if (configData->priorTime == 0) {
         dt = 0.0;
     } else {
-        dt = (callTime - configData->priorTime) * NANO2SEC;
+        dt = diffNanoToSec(callTime, configData->priorTime);
     }
     configData->priorTime = callTime;
 
@@ -265,7 +265,7 @@ void Update_cssWlsEst(CSSWLSConfig *configData, uint64_t callTime,
     /*! - If the residual fit output message is set, then compute the residuals and stor them in the output message */
     if (SunlineFilterMsg_C_isLinked(&configData->cssWLSFiltResOutMsg)) {
         configData->filtStatus.numObs = (int) configData->numActiveCss;
-        configData->filtStatus.timeTag = (double) (callTime*NANO2SEC);
+        configData->filtStatus.timeTag = callTime*NANO2SEC;
         v3Copy(sunlineOutBuffer.vehSunPntBdy, configData->filtStatus.state);
         SunlineFilterMsg_C_write(&configData->filtStatus, &configData->cssWLSFiltResOutMsg, moduleID, callTime);
 

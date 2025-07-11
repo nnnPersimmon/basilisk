@@ -8,7 +8,7 @@ Setup On macOS
 ==============
 
 These instruction outline how to install Basilisk (BSK) on a clean version of macOS.
-Basilisk requires the use of Python 3.8.x or greater.
+Basilisk requires the use of Python 3.8 to 3.13.   Version 3.8 is deprecated and will be removed April 2026.
 
 The following python package dependencies are automatically checked and installed in the steps below.
 
@@ -61,30 +61,6 @@ Install HomeBrew Support Packages
 
    $ brew install swig
 
-#. If you want to install the HomeBrew version of ``cmake``, you can do so with::
-
-   $ brew install cmake
-   $ brew link cmake
-
-
-Setting up the Python Environment
----------------------------------
-
-.. Note:: The following instructions recommend installing all the required python packages
-   either in a virtual environment or in the user ``~/Library/Python`` folder. This has the benefit that
-   no ``sudo`` command is required to install and run Basilisk, and the user Python folder can readily
-   be replaced if needed. If you are familiar with python you can install in other locations as well.
-
-.. Note:: If you wish to use the HomeBrew version of python, or generally have multiple copies of
-   python installed on your system, configure the CMake Python paths as described in
-   :ref:`customPython` after following these instructions.
-
-.. Note:: We suggest you remove any other python packages (such as Anaconda), or change the path in
-   your terminal shell if you really want to keep it.
-
-In the following instructions, be sure to follow the sequence of tasks as outlined below.
-
-
 Using A Python Virtual Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. attention:: We strongly recommend using a python virtual environment while installing basilisk or running basilisk modules.
@@ -118,22 +94,13 @@ steps work regardless if done within a virtual environment or not.
 Installing required python support packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #. Basilisk uses ``conan`` for package managing. In order to do so, users
-   must ensure ``wheel`` is installed and install ``conan``::
+   must first install all build related pip packages using::
 
-       (.venv) $ pip3 install wheel 'conan<2.0'
+       (.venv) $ pip3 install -r requirements_dev.txt
 
-   The conan repositories information is automatically setup by ``conanfile.py``.
-
-
-   .. warning::
-
-      If you are upgrading from a version of Basilisk prior to 1.8.0, be sure to delete the ``.conan`` folder in your
-      home directory to create a clean copy compatible with the current build system.
+   The ``conan`` repositories information is automatically setup by ``conanfile.py``.
 
 #. The required python packages for Basilisk will be installed automatically when running ``conanfile.py``.
-
-#. `Optional Packages:` The above directions install the Basilisk base software.
-   There are a series of :ref:`optional packages<installOptionalPackages>` that enhance this capability.
 
 Build Project Process via Terminal
 ----------------------------------
@@ -158,7 +125,7 @@ When all the prerequisite installations are complete, the project can be built a
 
    .. Note:: If you wish to use the another version of python 3 configure the Python paths in :ref:`customPython`
 
-   .. Warning:: If you get an error message in `cmake` saying it can’t find the compiler tools, open a Terminal window and type::
+   .. Warning:: If you get an error message in ``cmake`` saying it can’t find the compiler tools, open a Terminal window and type::
 
         $ xcode-select -p
 
@@ -190,7 +157,7 @@ using:
 
 #. Set the ``buildProject`` argument to ``False`` using::
 
-    (venv) $ python3 conanfile.py --buildProject False
+    (.venv) $ python3 conanfile.py --buildProject False
 
 #. Open the Xcode project file inside ``dist3``.  This is ``basilisk.xcodeproj`` on macOS.
 
